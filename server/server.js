@@ -1,0 +1,57 @@
+const express = require("express");
+const cors = require("cors");
+require("dotenv").config();
+require("./models/Product");
+require("./models/Order");
+require("./models/Invoice");
+
+const sequelize = require("./config/db");
+
+
+const app = express();
+
+app.use(cors());
+app.use(express.json());
+
+app.get("/", (req, res) => {
+  res.send("Jai Jalaram Packaging API Running 🚀");
+});
+
+sequelize.sync();
+
+const PORT = process.env.PORT || 5000;
+const authRoutes = require("./routes/authRoutes");
+app.use("/api/auth", authRoutes);
+const paymentRoutes = require("./routes/paymentRoutes");
+app.use("/api/payments", paymentRoutes);
+const productRoutes = require("./routes/productRoutes");
+app.use("/api/products", productRoutes);
+const invoiceRoutes = require("./routes/invoiceRoutes");
+app.use("/api/invoices", invoiceRoutes);
+
+const orderRoutes = require("./routes/orderRoutes");
+app.use("/api/orders", orderRoutes);
+
+
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
+const verifyToken = require("./middleware/authMiddleware");
+
+app.get("/api/protected", verifyToken, (req, res) => {
+  res.json({
+    message: "Protected route accessed successfully 🔐",
+    user: req.user,
+  });
+});
+const checkRole = require("./middleware/roleMiddleware");
+
+app.get(
+  "/api/admin",
+  verifyToken,
+  checkRole("admin"),
+  (req, res) => {
+    res.json({ message: "Welcome Admin 👑" });
+  }
+);
