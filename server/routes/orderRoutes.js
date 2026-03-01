@@ -11,7 +11,7 @@ router.post("/", verifyToken, orderController.placeOrder);
 // Customer view own orders
 router.get("/my", verifyToken, orderController.getMyOrders);
 
-// Admin view all orders
+// Admin view all orders  
 router.get(
   "/",
   verifyToken,

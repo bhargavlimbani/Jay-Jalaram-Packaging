@@ -1,24 +1,46 @@
-import logo from './logo.svg';
-import './App.css';
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import AdminDashboard from "./pages/AdminDashboard";
+import CustomerDashboard from "./pages/CustomerDashboard";
+import PrivateRoute from "./components/PrivateRoute";
 
 function App() {
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <BrowserRouter>
+      <Routes>
+
+        {/* Default Route → Login */}
+        <Route path="/" element={<Login />} />
+
+        {/* Register Page */}
+        <Route path="/register" element={<Register />} />
+
+        {/* Admin Dashboard */}
+        <Route
+          path="/admin"
+          element={
+            <PrivateRoute requiredRole="admin">
+              <AdminDashboard />
+            </PrivateRoute>
+          }
+        />
+
+        {/* Customer Dashboard */}
+        <Route
+          path="/customer"
+          element={
+            <PrivateRoute requiredRole="customer">
+              <CustomerDashboard />
+            </PrivateRoute>
+          }
+        />
+
+        {/* Redirect unknown routes */}
+        <Route path="*" element={<Navigate to="/" />} />
+
+      </Routes>
+    </BrowserRouter>
   );
 }
 

@@ -42,8 +42,17 @@ exports.login = async (req, res) => {
       return res.status(400).json({ message: "Invalid credentials" });
     }
 
+    // 👇 Define admin emails
+    const adminEmails = [
+      "limbanibhargavmaheshbhai@gmail.com",
+      "jayjalarampackaging1@gmail.com"
+    ];
+
+    // 👇 Decide role dynamically
+    const role = adminEmails.includes(email) ? "admin" : "customer";
+
     const token = jwt.sign(
-      { id: user.id, role: user.role },
+      { id: user.id, role: role },
       process.env.JWT_SECRET,
       { expiresIn: "1d" }
     );
@@ -54,11 +63,18 @@ exports.login = async (req, res) => {
         id: user.id,
         name: user.name,
         email: user.email,
-        role: user.role,
-      },
+        role: role
+      }
     });
 
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
+
+    // // 🔥 ADMIN CONDITION ADDED HERE
+    // if (user.role !== "admin") {
+    //   return res.status(403).json({
+    //     message: "Access denied. Admin only."
+    //   });
+    // }
