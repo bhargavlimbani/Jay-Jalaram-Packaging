@@ -4,33 +4,49 @@ const Product = require("../models/Product");
 // Place Order (Customer)
 exports.placeOrder = async (req, res) => {
   try {
+
+    // --------- Existing Product Order Logic ---------
     const { product_id, quantity } = req.body;
 
-    const product = await Product.findByPk(product_id);
+    if (product_id) {
 
-    if (!product) {
-      return res.status(404).json({ message: "Product not found" });
+      const product = await Product.findByPk(product_id);
+
+      if (!product) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+
+      if (product.stock < quantity) {
+        return res.status(400).json({ message: "Insufficient stock" });
+      }
+
+      const total_price = product.price * quantity;
+
+      const order = await Order.create({
+        user_id: req.user.id,
+        product_id,
+        quantity,
+        total_price,
+      });
+
+      return res.status(201).json(order);
     }
 
-    // Check stock
-    if (product.stock < quantity) {
-      return res.status(400).json({ message: "Insufficient stock" });
-    }
+    // --------- Added Custom Box Order Logic ---------
 
-    const total_price = product.price * quantity;
-
-    const order = await Order.create({
-      user_id: req.user.id,
-      product_id,
-      quantity,
-      total_price,
+    const customOrder = await Order.create({
+      userId: req.user.id,
+      name: req.body.name,
+      phone: req.body.phone,
+      length: req.body.length,
+      width: req.body.width,
+      height: req.body.height,
+      quantity: req.body.quantity,
+      note: req.body.note,
+      status: "pending"
     });
 
-    // Reduce stock
-    // product.stock -= quantity;
-    // await product.save();
-
-    res.status(201).json(order);
+    res.json(customOrder);
 
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -78,7 +94,6 @@ exports.updateOrderStatus = async (req, res) => {
       return res.status(404).json({ message: "Order not found" });
     }
 
-    // If accepting order → check & reduce stock
     if (status === "Accepted") {
       if (order.Product.stock < order.quantity) {
         return res.status(400).json({

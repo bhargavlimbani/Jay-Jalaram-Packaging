@@ -1,20 +1,35 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+
+import Home from "./pages/Home";
+import Products from "./pages/Products";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import ForgotPassword from "./pages/ForgotPassword";
 import AdminDashboard from "./pages/AdminDashboard";
 import CustomerDashboard from "./pages/CustomerDashboard";
 import PrivateRoute from "./components/PrivateRoute";
+import OrderForm from "./pages/OrderForm";
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
 
-        {/* Default Route → Login */}
-        <Route path="/" element={<Login />} />
+        {/* Homepage */}
+        <Route path="/" element={<Home />} />
 
-        {/* Register Page */}
+        {/* Products Page */}
+        <Route path="/products" element={<Products />} />
+
+        {/* Login */}
+        <Route path="/login" element={<Login />} />
+
+        {/* Register */}
         <Route path="/register" element={<Register />} />
+
+        {/* Forgot Password */}
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/order" element={<OrderForm />} />
 
         {/* Admin Dashboard */}
         <Route
@@ -35,9 +50,6 @@ function App() {
             </PrivateRoute>
           }
         />
-
-        {/* Redirect unknown routes */}
-        <Route path="*" element={<Navigate to="/" />} />
 
       </Routes>
     </BrowserRouter>
