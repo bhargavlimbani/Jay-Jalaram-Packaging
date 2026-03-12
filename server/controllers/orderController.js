@@ -42,6 +42,7 @@ exports.placeOrder = async (req, res) => {
       width: req.body.width,
       height: req.body.height,
       quantity: req.body.quantity,
+      price: req.body.price,
       note: req.body.note,
       status: "pending"
     });

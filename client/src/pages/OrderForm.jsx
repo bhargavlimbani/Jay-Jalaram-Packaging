@@ -1,4 +1,4 @@
-import { useState, useContext } from "react";
+import { useState, useContext, useEffect } from "react";
 import Navbar from "../components/Navbar";
 import { AuthContext } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
@@ -8,9 +8,15 @@ function OrderForm() {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
 
-  if (!user) {
-    navigate("/login");
-  }
+  useEffect(() => {
+
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+      navigate("/login");
+    }
+
+  }, []);
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -19,6 +25,22 @@ function OrderForm() {
   const [height, setHeight] = useState("");
   const [quantity, setQuantity] = useState("");
   const [note, setNote] = useState("");
+  const [price, setPrice] = useState(0);
+
+  const calculatePrice = () => {
+
+    const l = parseFloat(length) || 0;
+    const w = parseFloat(width) || 0;
+    const h = parseFloat(height) || 0;
+    const q = parseFloat(quantity) || 0;
+
+    const rate = 0.02;
+
+    const total = l * w * h * q * rate;
+
+    setPrice(total);
+
+  };
 
   const handleSubmit = () => {
 
@@ -29,6 +51,7 @@ function OrderForm() {
       width,
       height,
       quantity,
+      price,
       note
     };
 
@@ -84,8 +107,15 @@ function OrderForm() {
           <input
             className="w-full border p-2 mb-3 rounded"
             placeholder="Quantity"
-            onChange={(e) => setQuantity(e.target.value)}
+            onChange={(e) => {
+              setQuantity(e.target.value);
+              calculatePrice();
+            }}
           />
+
+          <div className="text-lg font-bold mb-3">
+            Estimated Price: ₹ {price}
+          </div>
 
           <textarea
             className="w-full border p-2 mb-3 rounded"

@@ -4,6 +4,8 @@ require("dotenv").config();
 require("./models/Product");
 require("./models/Order");
 require("./models/Invoice");
+require("./models/Material");
+
 
 const sequelize = require("./config/db");
 
@@ -31,6 +33,8 @@ app.use("/api/invoices", invoiceRoutes);
 
 const orderRoutes = require("./routes/orderRoutes");
 app.use("/api/orders", orderRoutes);
+const materialRoutes = require("./routes/materialRoutes");
+app.use("/api/materials", materialRoutes);
 
 
 

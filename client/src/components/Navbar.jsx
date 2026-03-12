@@ -1,20 +1,39 @@
 import { Link } from "react-router-dom";
+import { useContext } from "react";
+import { AuthContext } from "../context/AuthContext";
 
 function Navbar() {
+
+  const { user, logout } = useContext(AuthContext);
+
   return (
-    <nav className="bg-blue-600 text-white p-4 flex justify-between">
+
+    <div className="bg-blue-600 text-white flex justify-between p-4">
 
       <h1 className="text-xl font-bold">
         Jai Jalaram Packaging
       </h1>
 
-      <div className="flex gap-6">
+      <div className="flex gap-4">
+
         <Link to="/">Home</Link>
-        <Link to="/products">view Products</Link>
-        <Link to="/login">Login</Link>
+
+        <Link to="/products">View Products</Link>
+
+        {user && <Link to="/customer">My Orders</Link>}
+
+        {!user && <Link to="/login">Login</Link>}
+
+        {user && (
+          <button onClick={logout}>
+            Logout
+          </button>
+        )}
+
       </div>
 
-    </nav>
+    </div>
+
   );
 }
 

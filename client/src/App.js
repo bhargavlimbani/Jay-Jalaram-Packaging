@@ -9,6 +9,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import CustomerDashboard from "./pages/CustomerDashboard";
 import PrivateRoute from "./components/PrivateRoute";
 import OrderForm from "./pages/OrderForm";
+import Profile from "./pages/Profile";
 
 function App() {
   return (
@@ -47,6 +48,14 @@ function App() {
           element={
             <PrivateRoute requiredRole="customer">
               <CustomerDashboard />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <PrivateRoute requiredRole="customer">
+              <Profile />
             </PrivateRoute>
           }
         />
