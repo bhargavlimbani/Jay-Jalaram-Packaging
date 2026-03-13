@@ -5,7 +5,7 @@ function ForgotPassword() {
   const [email, setEmail] = useState("");
 
   const handleReset = () => {
-    alert("Password reset link will be sent to email");
+    alert(`Password reset link will be sent to ${email || "your email"}`);
   };
 
   return (

@@ -8,9 +8,49 @@ const Order = sequelize.define("Order", {
     type: DataTypes.INTEGER,
     allowNull: false,
   },
+  order_type: {
+    type: DataTypes.ENUM("product", "custom"),
+    defaultValue: "product",
+  },
   total_price: {
     type: DataTypes.DECIMAL(10, 2),
     allowNull: false,
+  },
+  customer_name: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  customer_phone: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  box_length: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: true,
+  },
+  box_width: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: true,
+  },
+  box_height: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: true,
+  },
+  custom_design: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
+  admin_comment: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
+  customer_reply: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
+  note: {
+    type: DataTypes.TEXT,
+    allowNull: true,
   },
   status: {
     type: DataTypes.ENUM(

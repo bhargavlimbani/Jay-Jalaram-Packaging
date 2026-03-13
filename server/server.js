@@ -5,6 +5,7 @@ require("./models/Product");
 require("./models/Order");
 require("./models/Invoice");
 require("./models/Material");
+const Product = require("./models/Product");
 
 
 const sequelize = require("./config/db");
@@ -19,7 +20,25 @@ app.get("/", (req, res) => {
   res.send("Jai Jalaram Packaging API Running 🚀");
 });
 
-sequelize.sync();
+sequelize.sync({ alter: true }).then(async () => {
+  await Product.findOrCreate({
+    where: { name: "Custom Size Box" },
+    defaults: {
+      description: "Box made as per customer size requirement",
+      price: 50,
+      stock: 100,
+    },
+  });
+
+  await Product.findOrCreate({
+    where: { name: "Custom Design Box" },
+    defaults: {
+      description: "Printed and designed box for brand packaging",
+      price: 80,
+      stock: 100,
+    },
+  });
+});
 
 const PORT = process.env.PORT || 5000;
 const authRoutes = require("./routes/authRoutes");

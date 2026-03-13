@@ -6,6 +6,11 @@ function Navbar() {
 
   const { user, logout } = useContext(AuthContext);
 
+  const handleLogout = () => {
+    logout();
+    window.location.href = "/";
+  };
+
   return (
 
     <div className="bg-blue-600 text-white flex justify-between p-4">
@@ -20,12 +25,14 @@ function Navbar() {
 
         <Link to="/products">View Products</Link>
 
-        {user && <Link to="/customer">My Orders</Link>}
+        {user?.role === "customer" && <Link to="/customer">Customer Dashboard</Link>}
+        {user?.role === "admin" && <Link to="/admin">Admin Dashboard</Link>}
+        {user && <Link to="/profile">Profile</Link>}
 
         {!user && <Link to="/login">Login</Link>}
 
         {user && (
-          <button onClick={logout}>
+          <button onClick={handleLogout}>
             Logout
           </button>
         )}

@@ -6,11 +6,11 @@ function PrivateRoute({ children, requiredRole }) {
   const { user } = useContext(AuthContext);
 
   if (!user) {
-    return <Navigate to="/" />;
+    return <Navigate to="/login" replace />;
   }
 
   if (requiredRole && user.role !== requiredRole) {
-    return <Navigate to="/" />;
+    return <Navigate to={user.role === "admin" ? "/admin" : "/customer"} replace />;
   }
 
   return children;

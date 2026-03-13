@@ -1,7 +1,11 @@
+import { useContext } from "react";
 import Navbar from "../components/Navbar";
 import { Link } from "react-router-dom";
+import { AuthContext } from "../context/AuthContext";
 
 function Home() {
+  const { user } = useContext(AuthContext);
+
   return (
 
     <div>
@@ -18,6 +22,12 @@ function Home() {
         <p className="text-lg text-gray-700 mb-6">
           High Quality Corrugated Boxes for Industrial Packaging
         </p>
+
+        {user?.role === "customer" && (
+          <p className="text-base font-medium text-blue-700">
+            Welcome back, {user.name}
+          </p>
+        )}
 
 
 
@@ -56,7 +66,7 @@ function Home() {
 
           <Link to="/products">
             <button className="bg-blue-600 text-white px-6 py-2 rounded">
-              View More Products
+              Click here to order boxes
             </button>
           </Link>
 

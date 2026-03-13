@@ -16,6 +16,20 @@ router.post(
 // Public
 router.get("/", productController.getProducts);
 
+router.put(
+  "/:id",
+  verifyToken,
+  checkRole("admin"),
+  productController.updateProduct
+);
+
+router.delete(
+  "/:id",
+  verifyToken,
+  checkRole("admin"),
+  productController.deleteProduct
+);
+
 // low stock products
 router.get(
   "/low-stock",

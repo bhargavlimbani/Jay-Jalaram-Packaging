@@ -1,61 +1,35 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Navbar from "../components/Navbar";
 import { Link } from "react-router-dom";
+import api from "../services/api";
 
 function Products() {
-
+  const [products, setProducts] = useState([]);
   const [search, setSearch] = useState("");
 
-  const boxes = [
-    {
-      id: 1,
-      name: "Small Corrugated Box",
-      size: "10 x 10 x 10 inch",
-      price: 15
-    },
-    {
-      id: 2,
-      name: "Medium Shipping Box",
-      size: "15 x 15 x 15 inch",
-      price: 25
-    },
-    {
-      id: 3,
-      name: "Large Industrial Box",
-      size: "20 x 20 x 20 inch",
-      price: 40
-    },
-    {
-      id: 4,
-      name: "Printed Custom Box",
-      size: "Custom Size",
-      price: 50
-    },
-    {
-      id: 5,
-      name: "Heavy Duty Box",
-      size: "25 x 25 x 25 inch",
-      price: 60
-    },
-    {
-      id: 6,
-      name: "Export Packaging Box",
-      size: "30 x 30 x 30 inch",
-      price: 80
-    }
-  ];
+  useEffect(() => {
+    const loadProducts = async () => {
+      try {
+        const res = await api.get("/products");
+        setProducts(Array.isArray(res.data) ? res.data : []);
+      } catch (error) {
+        console.log(error);
+        setProducts([]);
+      }
+    };
 
-  const filteredBoxes = boxes.filter((box) =>
-    box.name.toLowerCase().includes(search.toLowerCase())
+    loadProducts();
+  }, []);
+
+  const filteredProducts = products.filter((product) =>
+    product.name.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
     <div>
-
       <Navbar />
 
       <div className="p-10">
-
         <h1 className="text-3xl font-bold text-center mb-8">
           All Packaging Boxes
         </h1>
@@ -68,54 +42,54 @@ function Products() {
           onChange={(e) => setSearch(e.target.value)}
         />
 
-        <div className="grid grid-cols-3 gap-6">
+        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+          {filteredProducts.length > 0 ? (
+            filteredProducts.map((product) => (
+              <div key={product.id} className="shadow-lg p-4 rounded hover:shadow-xl bg-white">
+                <img
+                  src="https://via.placeholder.com/300"
+                  alt={product.name}
+                  className="rounded w-full"
+                />
 
-          {filteredBoxes.map((box) => (
+                <h3 className="font-bold text-lg mt-3">
+                  {product.name}
+                </h3>
 
-            <div key={box.id} className="shadow-lg p-4 rounded hover:shadow-xl">
+                <p className="text-gray-600 mt-2">
+                  {product.description || "Quality packaging product"}
+                </p>
 
-              <img
-                src="https://via.placeholder.com/300"
-                alt="box"
-                className="rounded"
-              />
+                <p className="font-bold text-blue-600 mt-3">
+                  Rs. {product.price} / piece
+                </p>
 
-              <h3 className="font-bold text-lg mt-3">
-                {box.name}
-              </h3>
+                <p className="text-sm text-gray-700 mt-1">
+                  Stock: {product.stock}
+                </p>
 
-              <p className="text-gray-600">
-                Size: {box.size}
-              </p>
-
-              <p className="font-bold text-blue-600">
-                ₹ {box.price} / piece
-              </p>
-
-              <Link to="/order">
-                <button className="bg-blue-600 text-white px-4 py-2 mt-3 rounded w-full hover:bg-blue-700">
-                  Order Box
-                </button>
-              </Link>
-
+                <Link to="/customer">
+                  <button className="bg-blue-600 text-white px-4 py-2 mt-3 rounded w-full hover:bg-blue-700">
+                    Order Box
+                  </button>
+                </Link>
+              </div>
+            ))
+          ) : (
+            <div className="col-span-full rounded-xl border bg-white p-6 text-center text-gray-600">
+              No products found.
             </div>
-
-          ))}
-
+          )}
         </div>
 
         <div className="text-center mt-10">
-
           <Link to="/order">
             <button className="bg-green-600 text-white px-6 py-3 rounded hover:bg-green-700">
               Request Custom Box
             </button>
           </Link>
-
         </div>
-
       </div>
-
     </div>
   );
 }

@@ -11,6 +11,12 @@ router.post("/", verifyToken, orderController.placeOrder);
 // Customer view own orders
 router.get("/my", verifyToken, orderController.getMyOrders);
 
+// Customer cancel own pending order
+router.delete("/:id", verifyToken, orderController.cancelMyOrder);
+
+// Customer reply to admin
+router.put("/:id/reply", verifyToken, orderController.replyToOrder);
+
 // Admin view all orders  
 router.get(
   "/",
