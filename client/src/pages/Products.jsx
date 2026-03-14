@@ -1,11 +1,31 @@
 import { useEffect, useState } from "react";
 import Navbar from "../components/Navbar";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import api from "../services/api";
 
 function Products() {
   const [products, setProducts] = useState([]);
   const [search, setSearch] = useState("");
+  const [searchParams] = useSearchParams();
+  const selectedCategory = searchParams.get("category") || "";
+
+  const inferCategory = (product) => {
+    const text = `${product.name || ""} ${product.description || ""}`.toLowerCase();
+
+    if (text.includes("printed")) {
+      return "printed-corucated-box";
+    }
+
+    if (text.includes("duplex")) {
+      return "duplex-box";
+    }
+
+    if (text.includes("carton")) {
+      return "carton-box";
+    }
+
+    return "corucated-box";
+  };
 
   useEffect(() => {
     const loadProducts = async () => {
@@ -21,9 +41,18 @@ function Products() {
     loadProducts();
   }, []);
 
-  const filteredProducts = products.filter((product) =>
-    product.name.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredProducts = products.filter((product) => {
+    const matchesSearch = product.name.toLowerCase().includes(search.toLowerCase());
+    const matchesCategory = !selectedCategory || inferCategory(product) === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
+
+  const categoryTitleMap = {
+    "carton-box": "Carton Box",
+    "corucated-box": "Corucated Box",
+    "printed-corucated-box": "Printed Corucated Box",
+    "duplex-box": "Duplex Box",
+  };
 
   return (
     <div>
@@ -31,7 +60,7 @@ function Products() {
 
       <div className="p-10">
         <h1 className="text-3xl font-bold text-center mb-8">
-          All Packaging Boxes
+          {categoryTitleMap[selectedCategory] || "All Packaging Boxes"}
         </h1>
 
         <input
@@ -47,9 +76,9 @@ function Products() {
             filteredProducts.map((product) => (
               <div key={product.id} className="shadow-lg p-4 rounded hover:shadow-xl bg-white">
                 <img
-                  src="https://via.placeholder.com/300"
+                  src={product.image_data || "https://via.placeholder.com/300"}
                   alt={product.name}
-                  className="rounded w-full"
+                  className="h-56 w-full rounded bg-gray-100 object-contain p-2"
                 />
 
                 <h3 className="font-bold text-lg mt-3">

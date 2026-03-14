@@ -4,18 +4,25 @@ import { AuthContext } from "../context/AuthContext";
 import { useNavigate, Link } from "react-router-dom";
 
 function Login() {
-
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   const { login } = useContext(AuthContext);
   const navigate = useNavigate();
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
   const handleLogin = async () => {
     try {
+      setErrorMessage("");
 
-      const data = await loginUser(email, password);
+      if (!emailPattern.test(email.trim())) {
+        setErrorMessage("Please enter a valid email address");
+        return;
+      }
+
+      const data = await loginUser(email.trim(), password);
 
       login(data.user, data.token);
 
@@ -26,7 +33,9 @@ function Login() {
       }
 
     } catch (error) {
-      alert("Login failed");
+      setErrorMessage(
+        error.response?.data?.message || "Login failed. Please try again."
+      );
     }
   };
 
@@ -45,7 +54,10 @@ function Login() {
           type="email"
           placeholder="Enter Email"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(e) => {
+            setEmail(e.target.value);
+            setErrorMessage("");
+          }}
           className="w-full border p-2 rounded mb-4"
         />
 
@@ -56,7 +68,10 @@ function Login() {
             type={showPassword ? "text" : "password"}
             placeholder="Enter Password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e) => {
+              setPassword(e.target.value);
+              setErrorMessage("");
+            }}
             className="w-full border p-2 rounded-l"
           />
 
@@ -69,6 +84,10 @@ function Login() {
           </button>
 
         </div>
+
+        {errorMessage && (
+          <p className="mt-3 text-sm font-medium text-red-600">{errorMessage}</p>
+        )}
 
         {/* Forgot password */}
         <div className="text-right mt-2">

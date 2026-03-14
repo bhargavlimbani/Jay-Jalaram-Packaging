@@ -1,11 +1,20 @@
 const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
+const { Op } = require("sequelize");
+const sendResetEmail = require("../utils/sendResetEmail");
+
+const isValidEmail = (email = "") => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
 // REGISTER
 exports.register = async (req, res) => {
   try {
     const { name, email, phone, address, password } = req.body;
+
+    if (!isValidEmail(email)) {
+      return res.status(400).json({ message: "Please enter a valid email address" });
+    }
 
     const existingUser = await User.findOne({ where: { email } });
     if (existingUser) {
@@ -44,14 +53,18 @@ exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
+    if (!isValidEmail(email)) {
+      return res.status(400).json({ message: "Please enter a valid email address" });
+    }
+
     const user = await User.findOne({ where: { email } });
     if (!user) {
-      return res.status(400).json({ message: "Invalid credentials" });
+      return res.status(400).json({ message: "Email is not registered" });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(400).json({ message: "Invalid credentials" });
+      return res.status(400).json({ message: "Password is incorrect" });
     }
 
     // 👇 Define admin emails
@@ -116,6 +129,10 @@ exports.updateProfile = async (req, res) => {
     }
 
     const { name, email, phone, address } = req.body;
+
+    if (email && !isValidEmail(email)) {
+      return res.status(400).json({ message: "Please enter a valid email address" });
+    }
 
     if (email && email !== user.email) {
       const existingUser = await User.findOne({ where: { email } });
@@ -189,6 +206,90 @@ exports.getCustomerDetails = async (req, res) => {
     res.json(customer);
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+};
+
+exports.forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!isValidEmail(email)) {
+      return res.status(400).json({ message: "Please enter a valid email address" });
+    }
+
+    const user = await User.findOne({ where: { email } });
+
+    if (!user) {
+      return res.status(404).json({ message: "Email is not registered" });
+    }
+
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    const resetExpiry = new Date(Date.now() + 15 * 60 * 1000);
+    const frontendBaseUrl = process.env.CLIENT_URL || "http://localhost:3000";
+    const resetLink = `${frontendBaseUrl}/reset-password/${resetToken}`;
+
+    await user.update({
+      reset_password_token: resetToken,
+      reset_password_expires: resetExpiry,
+    });
+
+    await sendResetEmail({
+      to: user.email,
+      name: user.name,
+      resetLink,
+    });
+
+    res.json({ message: `Password reset link sent to ${user.email}` });
+  } catch (error) {
+    if (error.message === "SMTP email settings are missing") {
+      return res.status(500).json({
+        message: "Please add your real Gmail App Password in server/.env for SMTP_PASS",
+      });
+    }
+
+    if (error.code === "EAUTH") {
+      return res.status(500).json({
+        message: "Gmail login failed. Check SMTP_USER and Gmail App Password in server/.env",
+      });
+    }
+
+    res.status(500).json({ message: "Unable to send reset email right now" });
+  }
+};
+
+exports.resetPassword = async (req, res) => {
+  try {
+    const { token } = req.params;
+    const { password } = req.body;
+
+    if (!password || password.trim().length < 6) {
+      return res.status(400).json({ message: "Password must be at least 6 characters" });
+    }
+
+    const user = await User.findOne({
+      where: {
+        reset_password_token: token,
+        reset_password_expires: {
+          [Op.gt]: new Date(),
+        },
+      },
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: "Reset link is invalid or expired" });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    await user.update({
+      password: hashedPassword,
+      reset_password_token: null,
+      reset_password_expires: null,
+    });
+
+    res.json({ message: "Password reset successfully" });
+  } catch (error) {
+    res.status(500).json({ message: "Unable to reset password right now" });
   }
 };
 

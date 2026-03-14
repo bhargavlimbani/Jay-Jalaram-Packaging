@@ -1,10 +1,11 @@
 import { useContext, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import Navbar from "../components/Navbar";
 import { getProfile, updateProfile as saveProfile } from "../services/authService";
 
 function Profile() {
-  const { user, updateUser } = useContext(AuthContext);
+  const { user, updateUser, logout } = useContext(AuthContext);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -12,6 +13,7 @@ function Profile() {
     address: "",
   });
   const [message, setMessage] = useState("");
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (user) {
@@ -51,6 +53,11 @@ function Profile() {
       console.log(error);
       setMessage("Unable to update profile.");
     }
+  };
+
+  const handleLogout = () => {
+    logout();
+    navigate("/");
   };
 
   return (
@@ -96,12 +103,21 @@ function Profile() {
           />
         </div>
 
-        <button
-          className="mt-6 rounded bg-blue-600 px-5 py-3 text-white hover:bg-blue-700"
-          onClick={handleSubmit}
-        >
-          Update Profile
-        </button>
+        <div className="mt-6 flex flex-wrap gap-3">
+          <button
+            className="rounded bg-blue-600 px-5 py-3 text-white hover:bg-blue-700"
+            onClick={handleSubmit}
+          >
+            Update Profile
+          </button>
+
+          <button
+            className="rounded bg-red-600 px-5 py-3 text-white hover:bg-red-700"
+            onClick={handleLogout}
+          >
+            Logout
+          </button>
+        </div>
       </div>
     </div>
   );

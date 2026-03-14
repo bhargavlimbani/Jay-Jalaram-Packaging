@@ -40,6 +40,18 @@ const Order = sequelize.define("Order", {
     type: DataTypes.TEXT,
     allowNull: true,
   },
+  design_file_name: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  design_file_data: {
+    type: DataTypes.TEXT("long"),
+    allowNull: true,
+  },
+  chat_messages: {
+    type: DataTypes.TEXT("long"),
+    allowNull: true,
+  },
   admin_comment: {
     type: DataTypes.TEXT,
     allowNull: true,

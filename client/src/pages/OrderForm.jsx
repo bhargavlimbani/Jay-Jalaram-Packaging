@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 
 function OrderForm() {
+  const MAX_PDF_SIZE_BYTES = 5 * 1024 * 1024;
   const navigate = useNavigate();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -13,6 +14,8 @@ function OrderForm() {
   const [quantity, setQuantity] = useState("");
   const [note, setNote] = useState("");
   const [customDesign, setCustomDesign] = useState("");
+  const [designFileName, setDesignFileName] = useState("");
+  const [designFileData, setDesignFileData] = useState("");
   const [price, setPrice] = useState(0);
   const [message, setMessage] = useState("");
 
@@ -34,6 +37,38 @@ function OrderForm() {
     setPrice(Number((l * w * h * q * rate).toFixed(2)));
   }, [length, width, height, quantity]);
 
+  const handleFileChange = (event) => {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      setDesignFileName("");
+      setDesignFileData("");
+      return;
+    }
+
+    if (file.type !== "application/pdf") {
+      setMessage("Please upload only PDF file.");
+      event.target.value = "";
+      return;
+    }
+
+    if (file.size > MAX_PDF_SIZE_BYTES) {
+      setMessage("PDF size must be 5 MB or smaller.");
+      setDesignFileName("");
+      setDesignFileData("");
+      event.target.value = "";
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setDesignFileName(file.name);
+      setDesignFileData(reader.result);
+      setMessage("");
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleSubmit = async () => {
     try {
       await api.post("/orders", {
@@ -46,6 +81,8 @@ function OrderForm() {
         quantity,
         total_price: price,
         custom_design: customDesign,
+        design_file_name: designFileName,
+        design_file_data: designFileData,
         note,
       });
 
@@ -126,6 +163,23 @@ function OrderForm() {
             value={customDesign}
             onChange={(e) => setCustomDesign(e.target.value)}
           />
+
+          <input
+            type="file"
+            accept="application/pdf"
+            className="w-full border p-2 mb-3 rounded"
+            onChange={handleFileChange}
+          />
+
+          <p className="mb-3 text-xs text-gray-500">
+            Upload PDF only. Maximum size: 5 MB.
+          </p>
+
+          {designFileName && (
+            <p className="mb-3 text-sm text-green-700">
+              Selected PDF: {designFileName}
+            </p>
+          )}
 
           <textarea
             className="w-full border p-2 mb-3 rounded"

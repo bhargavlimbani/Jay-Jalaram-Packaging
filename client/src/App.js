@@ -5,6 +5,7 @@ import Products from "./pages/Products";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import AdminDashboard from "./pages/AdminDashboard";
 import CustomerDashboard from "./pages/CustomerDashboard";
 import PrivateRoute from "./components/PrivateRoute";
@@ -30,6 +31,7 @@ function App() {
 
         {/* Forgot Password */}
         <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password/:token" element={<ResetPassword />} />
         <Route path="/order" element={<OrderForm />} />
 
         {/* Admin Dashboard */}

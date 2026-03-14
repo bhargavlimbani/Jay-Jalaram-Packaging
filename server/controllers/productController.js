@@ -3,11 +3,12 @@ const Product = require("../models/Product");
 // Create Product (Admin only)
 exports.createProduct = async (req, res) => {
   try {
-    const { name, description, price, stock } = req.body;
+    const { name, description, image_data, price, stock } = req.body;
 
     const product = await Product.create({
       name,
       description,
+      image_data,
       price,
       stock,
     });
@@ -32,7 +33,7 @@ exports.getProducts = async (req, res) => {
 exports.updateProduct = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, description, price, stock } = req.body;
+    const { name, description, image_data, price, stock } = req.body;
 
     const product = await Product.findByPk(id);
 
@@ -43,6 +44,7 @@ exports.updateProduct = async (req, res) => {
     await product.update({
       name,
       description,
+      image_data,
       price,
       stock,
     });

@@ -2,6 +2,26 @@ const Order = require("../models/Order");
 const Product = require("../models/Product");
 const User = require("../models/User");
 
+const parseChatMessages = (order) => {
+  try {
+    const parsed = order.chat_messages ? JSON.parse(order.chat_messages) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    return [];
+  }
+};
+
+const appendChatMessage = async (order, sender, message) => {
+  const messages = parseChatMessages(order);
+  messages.push({
+    sender,
+    message,
+    createdAt: new Date().toISOString(),
+  });
+  order.chat_messages = JSON.stringify(messages);
+  return messages;
+};
+
 // Place Order (Customer)
 exports.placeOrder = async (req, res) => {
   try {
@@ -15,6 +35,8 @@ exports.placeOrder = async (req, res) => {
       box_width,
       box_height,
       custom_design,
+      design_file_name,
+      design_file_data,
       note,
       total_price: custom_total_price,
     } = req.body;
@@ -44,7 +66,10 @@ exports.placeOrder = async (req, res) => {
         box_width,
         box_height,
         custom_design,
+        design_file_name,
+        design_file_data,
         note,
+        chat_messages: JSON.stringify([]),
         status: "Pending",
       });
 
@@ -81,6 +106,7 @@ exports.placeOrder = async (req, res) => {
       quantity: parsedQuantity,
       total_price,
       order_type: "product",
+      chat_messages: JSON.stringify([]),
       status: "Pending",
     });
 
@@ -159,11 +185,99 @@ exports.replyToOrder = async (req, res) => {
     }
 
     order.customer_reply = customer_reply.trim();
+    appendChatMessage(order, "customer", customer_reply.trim());
     await order.save();
 
     res.json({
       message: "Reply sent successfully",
       order,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Admin: Send comment to customer
+exports.sendAdminComment = async (req, res) => {
+  try {
+    const order = await Order.findByPk(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    const { admin_comment } = req.body;
+
+    if (!admin_comment || !admin_comment.trim()) {
+      return res.status(400).json({ message: "Comment is required" });
+    }
+
+    order.admin_comment = admin_comment.trim();
+    appendChatMessage(order, "admin", admin_comment.trim());
+    await order.save();
+
+    res.json({
+      message: "Comment sent successfully",
+      order,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.getOrderChat = async (req, res) => {
+  try {
+    const order = await Order.findByPk(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    if (req.user.role !== "admin" && order.user_id !== req.user.id) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    res.json({
+      orderId: order.id,
+      messages: parseChatMessages(order),
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.sendOrderChatMessage = async (req, res) => {
+  try {
+    const order = await Order.findByPk(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    if (req.user.role !== "admin" && order.user_id !== req.user.id) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const { message } = req.body;
+
+    if (!message || !message.trim()) {
+      return res.status(400).json({ message: "Message is required" });
+    }
+
+    const sender = req.user.role === "admin" ? "admin" : "customer";
+    appendChatMessage(order, sender, message.trim());
+
+    if (sender === "admin") {
+      order.admin_comment = message.trim();
+    } else {
+      order.customer_reply = message.trim();
+    }
+
+    await order.save();
+
+    res.json({
+      message: "Chat message sent successfully",
+      messages: parseChatMessages(order),
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -217,6 +331,9 @@ exports.updateOrderStatus = async (req, res) => {
     order.status = status;
     if (typeof admin_comment === "string") {
       order.admin_comment = admin_comment.trim();
+      if (admin_comment.trim()) {
+        appendChatMessage(order, "admin", admin_comment.trim());
+      }
     }
     await order.save();
 

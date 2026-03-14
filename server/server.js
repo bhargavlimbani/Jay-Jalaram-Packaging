@@ -14,7 +14,8 @@ const sequelize = require("./config/db");
 const app = express();
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: "20mb" }));
+app.use(express.urlencoded({ limit: "20mb", extended: true }));
 
 app.get("/", (req, res) => {
   res.send("Jai Jalaram Packaging API Running 🚀");
