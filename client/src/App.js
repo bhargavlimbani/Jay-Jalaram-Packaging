@@ -56,7 +56,7 @@ function App() {
         <Route
           path="/profile"
           element={
-            <PrivateRoute requiredRole="customer">
+            <PrivateRoute>
               <Profile />
             </PrivateRoute>
           }

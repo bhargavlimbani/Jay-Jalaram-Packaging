@@ -1,5 +1,7 @@
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
+import { AuthContext } from "../context/AuthContext";
 import { Bar } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -21,6 +23,8 @@ ChartJS.register(
 );
 
 function AdminDashboard() {
+  const { logout } = useContext(AuthContext);
+  const navigate = useNavigate();
   const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
   const ALLOWED_IMAGE_EXTENSIONS = [
     "jpg",
@@ -49,6 +53,7 @@ function AdminDashboard() {
   });
   const [editingProductId, setEditingProductId] = useState(null);
   const [message, setMessage] = useState("");
+  const [activeSection, setActiveSection] = useState("orders");
 
   useEffect(() => {
     fetchOrders();
@@ -341,6 +346,11 @@ function AdminDashboard() {
     pdfWindow.document.close();
   };
 
+  const handleLogout = () => {
+    logout();
+    navigate("/");
+  };
+
   const renderChatPanel = (orderId) =>
     openChatOrderId === orderId ? (
       <div className="mt-3 rounded border bg-slate-50 p-3">
@@ -377,214 +387,285 @@ function AdminDashboard() {
   return (
     <div>
       <Navbar />
-      <div className="p-10">
-        <h1 className="mb-6 text-3xl font-bold">Admin Dashboard</h1>
-        {message && <div className="mb-6 rounded bg-blue-100 px-4 py-3 text-blue-900">{message}</div>}
-        <div className="mb-6 rounded bg-green-500 p-4 text-white">Total Sales: Rs. {totalSales}</div>
-        <div className="mb-10 grid grid-cols-1 gap-4 md:grid-cols-4">
-          <div className="rounded bg-blue-500 p-4 text-white">Total Orders: {orders.length}</div>
-          <div className="rounded bg-yellow-500 p-4 text-white">Pending: {pending}</div>
-          <div className="rounded bg-green-500 p-4 text-white">Accepted: {accepted}</div>
-          <div className="rounded bg-red-500 p-4 text-white">Rejected: {rejected}</div>
+      <div className="bg-slate-50 p-4 md:p-6 lg:p-8">
+        <div className="mb-6 rounded-2xl bg-white p-6 shadow-sm">
+          <h1 className="mb-3 text-3xl font-bold">Admin Dashboard</h1>
+          {message && <div className="mb-6 rounded bg-blue-100 px-4 py-3 text-blue-900">{message}</div>}
+          <div className="mb-6 rounded bg-green-500 p-4 text-white">Total Sales: Rs. {totalSales}</div>
+          <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-4">
+            <div className="rounded bg-blue-500 p-4 text-white">Total Orders: {orders.length}</div>
+            <div className="rounded bg-yellow-500 p-4 text-white">Pending: {pending}</div>
+            <div className="rounded bg-green-500 p-4 text-white">Accepted: {accepted}</div>
+            <div className="rounded bg-red-500 p-4 text-white">Rejected: {rejected}</div>
+          </div>
+          <div className="w-full max-w-xl">
+            <Bar data={chartData} />
+          </div>
         </div>
-        <div className="mb-10 w-full max-w-xl">
-          <Bar data={chartData} />
-        </div>
-        <h2 className="mb-4 text-2xl font-bold">Customer Orders</h2>
-        <table className="mb-16 w-full border bg-white">
-          <thead>
-            <tr className="bg-gray-200">
-              <th className="border p-2">Customer</th>
-              <th className="border p-2">Product</th>
-              <th className="border p-2">Quantity</th>
-              <th className="border p-2">Total Price</th>
-              <th className="border p-2">Status</th>
-              <th className="border p-2">Chat</th>
-              <th className="border p-2">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {orders.length > 0 ? (
-              orders.map((order) => (
-                <tr key={order.id}>
-                  <td className="border p-2 align-top">{order.User?.name || "Customer"}</td>
-                  <td className="border p-2 align-top">
-                    {order.order_type === "custom"
-                      ? `Custom Box (${order.box_length} x ${order.box_width} x ${order.box_height})`
-                      : order.Product?.name || "Product removed"}
-                  </td>
-                  <td className="border p-2 align-top">{order.quantity}</td>
-                  <td className="border p-2 align-top">Rs. {order.total_price}</td>
-                  <td className="border p-2 align-top">{order.status}</td>
-                  <td className="border p-2 align-top">
-                    {order.customer_reply && (
-                      <p className="mb-2 text-sm text-blue-700">Customer reply: {order.customer_reply}</p>
-                    )}
-                    {order.design_file_data && (
-                      <div className="mt-2 text-sm">
-                        <button
-                          type="button"
-                          className="mr-3 text-blue-700 underline"
-                          onClick={() =>
-                            viewPdf(order.design_file_data, order.design_file_name)
-                          }
-                        >
-                          View PDF
-                        </button>
-                        <a
-                          className="text-blue-700 underline"
-                          href={order.design_file_data}
-                          download={order.design_file_name || "design.pdf"}
-                        >
-                          Download PDF
-                        </a>
-                      </div>
-                    )}
-                    {renderChatPanel(order.id)}
-                  </td>
-                  <td className="border p-2 align-top">
-                    <button className="mb-2 mr-2 rounded bg-indigo-600 px-3 py-1 text-white hover:bg-indigo-700" onClick={() => fetchOrderChat(order.id)}>Chat</button>
-                    <button className="mr-2 rounded bg-green-600 px-3 py-1 text-white disabled:opacity-60" onClick={() => updateStatus(order.id, "Accepted")} disabled={order.status === "Accepted"}>Accept</button>
-                    <button className="rounded bg-red-600 px-3 py-1 text-white disabled:opacity-60" onClick={() => updateStatus(order.id, "Rejected")} disabled={order.status === "Rejected"}>Reject</button>
-                  </td>
-                </tr>
-              ))
-            ) : (
-              <tr><td className="border p-4 text-center" colSpan="7">No customer orders found.</td></tr>
-            )}
-          </tbody>
-        </table>
-        <h2 className="mb-4 text-2xl font-bold">All Customers</h2>
-        <div className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {customers.length > 0 ? customers.map((customer) => (
-            <button key={customer.id} className="rounded-xl border bg-white p-5 text-left shadow-sm hover:border-blue-400" onClick={() => fetchCustomerDetails(customer.id)}>
-              <h3 className="text-lg font-semibold">{customer.name}</h3>
-              <p className="mt-1 text-sm text-gray-700">{customer.email}</p>
-              <p className="mt-1 text-sm text-gray-700">{customer.phone || "No phone"}</p>
-            </button>
-          )) : <div className="rounded border bg-white p-4">No customers found.</div>}
-        </div>
-        {selectedCustomer && (
-          <div className="mb-16 rounded-xl border bg-white p-6 shadow-sm">
-            <h3 className="text-2xl font-bold">{selectedCustomer.name}</h3>
-            <p className="mt-2 text-sm text-gray-700">Email: {selectedCustomer.email}</p>
-            <p className="mt-1 text-sm text-gray-700">Phone: {selectedCustomer.phone || "-"}</p>
-            <p className="mt-1 text-sm text-gray-700">Address: {selectedCustomer.address || "-"}</p>
-            <h4 className="mt-6 mb-3 text-xl font-semibold">Customer Order History</h4>
-            <table className="w-full border bg-white">
-              <thead>
-                <tr className="bg-gray-200">
-                  <th className="border p-2">Order ID</th>
-                  <th className="border p-2">Product</th>
-                  <th className="border p-2">Quantity</th>
-                  <th className="border p-2">Total Price</th>
-                  <th className="border p-2">Status</th>
-                  <th className="border p-2">Chat Summary</th>
-                </tr>
-              </thead>
-              <tbody>
-                {selectedCustomer.Orders?.length > 0 ? selectedCustomer.Orders.map((order) => (
-                  <tr key={order.id}>
-                    <td className="border p-2">{order.id}</td>
-                    <td className="border p-2">
-                      {order.order_type === "custom"
-                        ? `Custom Box (${order.box_length} x ${order.box_width} x ${order.box_height})`
-                        : order.Product?.name || "Product removed"}
-                    </td>
-                    <td className="border p-2">{order.quantity}</td>
-                    <td className="border p-2">Rs. {order.total_price}</td>
-                    <td className="border p-2">{order.status}</td>
-                    <td className="border p-2">
-                      {order.admin_comment || "-"}
-                      {order.customer_reply && <p className="mt-2 text-sm text-blue-700">Customer reply: {order.customer_reply}</p>}
-                      {order.design_file_data && (
-                        <div className="mt-2 text-sm">
-                          <button
-                            type="button"
-                            className="mr-3 text-blue-700 underline"
-                            onClick={() =>
-                              viewPdf(order.design_file_data, order.design_file_name)
-                            }
-                          >
-                            View PDF
-                          </button>
-                          <a
-                            className="text-blue-700 underline"
-                            href={order.design_file_data}
-                            download={order.design_file_name || "design.pdf"}
-                          >
-                            Download PDF
-                          </a>
-                        </div>
+
+        <div className="flex flex-col gap-6 lg:flex-row">
+          <aside className="lg:w-72">
+            <div className="rounded-2xl bg-slate-900 p-4 text-white shadow-sm lg:sticky lg:top-6">
+              <p className="mb-4 text-sm font-semibold uppercase tracking-[0.2em] text-slate-300">
+                Menu
+              </p>
+              <div className="space-y-3">
+                <button
+                  type="button"
+                  className={`w-full rounded-lg px-4 py-3 text-left transition ${
+                    activeSection === "orders" ? "bg-white text-slate-900" : "bg-slate-800 hover:bg-slate-700"
+                  }`}
+                  onClick={() => setActiveSection("orders")}
+                >
+                  Customer Orders
+                </button>
+                <button
+                  type="button"
+                  className={`w-full rounded-lg px-4 py-3 text-left transition ${
+                    activeSection === "customers" ? "bg-white text-slate-900" : "bg-slate-800 hover:bg-slate-700"
+                  }`}
+                  onClick={() => setActiveSection("customers")}
+                >
+                  All Customers
+                </button>
+                <button
+                  type="button"
+                  className={`w-full rounded-lg px-4 py-3 text-left transition ${
+                    activeSection === "products" ? "bg-white text-slate-900" : "bg-slate-800 hover:bg-slate-700"
+                  }`}
+                  onClick={() => setActiveSection("products")}
+                >
+                  Product Management
+                </button>
+                <button
+                  type="button"
+                  className="w-full rounded-lg bg-red-600 px-4 py-3 text-left text-white transition hover:bg-red-700"
+                  onClick={handleLogout}
+                >
+                  Logout
+                </button>
+              </div>
+            </div>
+          </aside>
+
+          <div className="min-w-0 flex-1">
+            {activeSection === "orders" && (
+              <div className="rounded-2xl bg-white p-6 shadow-sm">
+                <h2 className="mb-4 text-2xl font-bold">Customer Orders</h2>
+                <div className="overflow-x-auto">
+                  <table className="mb-2 w-full border bg-white">
+                    <thead>
+                      <tr className="bg-gray-200">
+                        <th className="border p-2">Customer</th>
+                        <th className="border p-2">Product</th>
+                        <th className="border p-2">Quantity</th>
+                        <th className="border p-2">Total Price</th>
+                        <th className="border p-2">Status</th>
+                        <th className="border p-2">Chat</th>
+                        <th className="border p-2">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {orders.length > 0 ? (
+                        orders.map((order) => (
+                          <tr key={order.id}>
+                            <td className="border p-2 align-top">{order.User?.name || "Customer"}</td>
+                            <td className="border p-2 align-top">
+                              {order.order_type === "custom"
+                                ? `Custom Box (${order.box_length} x ${order.box_width} x ${order.box_height})`
+                                : order.Product?.name || "Product removed"}
+                            </td>
+                            <td className="border p-2 align-top">{order.quantity}</td>
+                            <td className="border p-2 align-top">Rs. {order.total_price}</td>
+                            <td className="border p-2 align-top">{order.status}</td>
+                            <td className="border p-2 align-top">
+                              {order.customer_reply && (
+                                <p className="mb-2 text-sm text-blue-700">Customer reply: {order.customer_reply}</p>
+                              )}
+                              {order.design_file_data && (
+                                <div className="mt-2 text-sm">
+                                  <button
+                                    type="button"
+                                    className="mr-3 text-blue-700 underline"
+                                    onClick={() =>
+                                      viewPdf(order.design_file_data, order.design_file_name)
+                                    }
+                                  >
+                                    View PDF
+                                  </button>
+                                  <a
+                                    className="text-blue-700 underline"
+                                    href={order.design_file_data}
+                                    download={order.design_file_name || "design.pdf"}
+                                  >
+                                    Download PDF
+                                  </a>
+                                </div>
+                              )}
+                              {renderChatPanel(order.id)}
+                            </td>
+                            <td className="border p-2 align-top">
+                              <button className="mb-2 mr-2 rounded bg-indigo-600 px-3 py-1 text-white hover:bg-indigo-700" onClick={() => fetchOrderChat(order.id)}>Chat</button>
+                              <button className="mr-2 rounded bg-green-600 px-3 py-1 text-white disabled:opacity-60" onClick={() => updateStatus(order.id, "Accepted")} disabled={order.status === "Accepted"}>Accept</button>
+                              <button className="rounded bg-red-600 px-3 py-1 text-white disabled:opacity-60" onClick={() => updateStatus(order.id, "Rejected")} disabled={order.status === "Rejected"}>Reject</button>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr><td className="border p-4 text-center" colSpan="7">No customer orders found.</td></tr>
                       )}
-                    </td>
-                  </tr>
-                )) : <tr><td className="border p-4 text-center" colSpan="6">No order history for this customer.</td></tr>}
-              </tbody>
-            </table>
-          </div>
-        )}
-        <h2 className="mb-4 text-2xl font-bold">Product Management</h2>
-        <div className="mb-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <input className="rounded border p-2" placeholder="Product Name" value={productForm.name} onChange={(e) => setProductForm({ ...productForm, name: e.target.value })} />
-          <input className="rounded border p-2" placeholder="Description" value={productForm.description} onChange={(e) => setProductForm({ ...productForm, description: e.target.value })} />
-          <input className="rounded border p-2" type="file" accept="image/*" onChange={handleProductImageChange} />
-          <input className="rounded border p-2" placeholder="Price" value={productForm.price} onChange={(e) => setProductForm({ ...productForm, price: e.target.value })} />
-          <input className="rounded border p-2" placeholder="Stock" value={productForm.stock} onChange={(e) => setProductForm({ ...productForm, stock: e.target.value })} />
-        </div>
-        <p className="mb-4 text-xs text-gray-500">
-          Upload product photo in common image formats. Maximum size: 10 MB.
-        </p>
-        {productForm.image_data && (
-          <div className="mb-4">
-            <img
-              src={productForm.image_data}
-              alt="Product preview"
-              className="h-24 w-24 rounded object-cover border"
-            />
-          </div>
-        )}
-        <div className="mb-6">
-          <button className="mr-2 rounded bg-green-600 px-4 py-2 text-white" onClick={saveProduct}>{editingProductId ? "Update Product" : "Add Product"}</button>
-          <button className="rounded bg-gray-500 px-4 py-2 text-white" onClick={resetForm}>Clear</button>
-        </div>
-        <table className="w-full border bg-white">
-          <thead>
-            <tr className="bg-gray-200">
-              <th className="border p-2">Photo</th>
-              <th className="border p-2">Name</th>
-              <th className="border p-2">Description</th>
-              <th className="border p-2">Price</th>
-              <th className="border p-2">Stock</th>
-              <th className="border p-2">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {products.length > 0 ? products.map((product) => (
-              <tr key={product.id}>
-                <td className="border p-2">
-                  {product.image_data ? (
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {activeSection === "customers" && (
+              <div className="rounded-2xl bg-white p-6 shadow-sm">
+                <h2 className="mb-4 text-2xl font-bold">All Customers</h2>
+                <div className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  {customers.length > 0 ? customers.map((customer) => (
+                    <button key={customer.id} className="rounded-xl border bg-white p-5 text-left shadow-sm hover:border-blue-400" onClick={() => fetchCustomerDetails(customer.id)}>
+                      <h3 className="text-lg font-semibold">{customer.name}</h3>
+                      <p className="mt-1 text-sm text-gray-700">{customer.email}</p>
+                      <p className="mt-1 text-sm text-gray-700">{customer.phone || "No phone"}</p>
+                    </button>
+                  )) : <div className="rounded border bg-white p-4">No customers found.</div>}
+                </div>
+                {selectedCustomer && (
+                  <div className="rounded-xl border bg-white p-6 shadow-sm">
+                    <h3 className="text-2xl font-bold">{selectedCustomer.name}</h3>
+                    <p className="mt-2 text-sm text-gray-700">Email: {selectedCustomer.email}</p>
+                    <p className="mt-1 text-sm text-gray-700">Phone: {selectedCustomer.phone || "-"}</p>
+                    <p className="mt-1 text-sm text-gray-700">Address: {selectedCustomer.address || "-"}</p>
+                    <h4 className="mb-3 mt-6 text-xl font-semibold">Customer Order History</h4>
+                    <div className="overflow-x-auto">
+                      <table className="w-full border bg-white">
+                        <thead>
+                          <tr className="bg-gray-200">
+                            <th className="border p-2">Order ID</th>
+                            <th className="border p-2">Product</th>
+                            <th className="border p-2">Quantity</th>
+                            <th className="border p-2">Total Price</th>
+                            <th className="border p-2">Status</th>
+                            <th className="border p-2">Chat Summary</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {selectedCustomer.Orders?.length > 0 ? selectedCustomer.Orders.map((order) => (
+                            <tr key={order.id}>
+                              <td className="border p-2">{order.id}</td>
+                              <td className="border p-2">
+                                {order.order_type === "custom"
+                                  ? `Custom Box (${order.box_length} x ${order.box_width} x ${order.box_height})`
+                                  : order.Product?.name || "Product removed"}
+                              </td>
+                              <td className="border p-2">{order.quantity}</td>
+                              <td className="border p-2">Rs. {order.total_price}</td>
+                              <td className="border p-2">{order.status}</td>
+                              <td className="border p-2">
+                                {order.admin_comment || "-"}
+                                {order.customer_reply && <p className="mt-2 text-sm text-blue-700">Customer reply: {order.customer_reply}</p>}
+                                {order.design_file_data && (
+                                  <div className="mt-2 text-sm">
+                                    <button
+                                      type="button"
+                                      className="mr-3 text-blue-700 underline"
+                                      onClick={() =>
+                                        viewPdf(order.design_file_data, order.design_file_name)
+                                      }
+                                    >
+                                      View PDF
+                                    </button>
+                                    <a
+                                      className="text-blue-700 underline"
+                                      href={order.design_file_data}
+                                      download={order.design_file_name || "design.pdf"}
+                                    >
+                                      Download PDF
+                                    </a>
+                                  </div>
+                                )}
+                              </td>
+                            </tr>
+                          )) : <tr><td className="border p-4 text-center" colSpan="6">No order history for this customer.</td></tr>}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeSection === "products" && (
+              <div className="rounded-2xl bg-white p-6 shadow-sm">
+                <h2 className="mb-4 text-2xl font-bold">Product Management</h2>
+                <div className="mb-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                  <input className="rounded border p-2" placeholder="Product Name" value={productForm.name} onChange={(e) => setProductForm({ ...productForm, name: e.target.value })} />
+                  <input className="rounded border p-2" placeholder="Description" value={productForm.description} onChange={(e) => setProductForm({ ...productForm, description: e.target.value })} />
+                  <input className="rounded border p-2" type="file" accept="image/*" onChange={handleProductImageChange} />
+                  <input className="rounded border p-2" placeholder="Price" value={productForm.price} onChange={(e) => setProductForm({ ...productForm, price: e.target.value })} />
+                  <input className="rounded border p-2" placeholder="Stock" value={productForm.stock} onChange={(e) => setProductForm({ ...productForm, stock: e.target.value })} />
+                </div>
+                <p className="mb-4 text-xs text-gray-500">
+                  Upload product photo in common image formats. Maximum size: 10 MB.
+                </p>
+                {productForm.image_data && (
+                  <div className="mb-4">
                     <img
-                      src={product.image_data}
-                      alt={product.name}
-                      className="h-14 w-14 rounded object-cover"
+                      src={productForm.image_data}
+                      alt="Product preview"
+                      className="h-24 w-24 rounded border object-cover"
                     />
-                  ) : (
-                    "-"
-                  )}
-                </td>
-                <td className="border p-2">{product.name}</td>
-                <td className="border p-2">{product.description || "-"}</td>
-                <td className="border p-2">Rs. {product.price}</td>
-                <td className="border p-2">{product.stock}</td>
-                <td className="border p-2">
-                  <button className="mr-2 rounded bg-blue-600 px-3 py-1 text-white" onClick={() => startEdit(product)}>Edit</button>
-                  <button className="rounded bg-red-600 px-3 py-1 text-white" onClick={() => deleteProduct(product.id)}>Delete</button>
-                </td>
-              </tr>
-            )) : <tr><td className="border p-4 text-center" colSpan="6">No products found.</td></tr>}
-          </tbody>
-        </table>
+                  </div>
+                )}
+                <div className="mb-6">
+                  <button className="mr-2 rounded bg-green-600 px-4 py-2 text-white" onClick={saveProduct}>{editingProductId ? "Update Product" : "Add Product"}</button>
+                  <button className="rounded bg-gray-500 px-4 py-2 text-white" onClick={resetForm}>Clear</button>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full border bg-white">
+                    <thead>
+                      <tr className="bg-gray-200">
+                        <th className="border p-2">Photo</th>
+                        <th className="border p-2">Name</th>
+                        <th className="border p-2">Description</th>
+                        <th className="border p-2">Price</th>
+                        <th className="border p-2">Stock</th>
+                        <th className="border p-2">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {products.length > 0 ? products.map((product) => (
+                        <tr key={product.id}>
+                          <td className="border p-2">
+                            {product.image_data ? (
+                              <img
+                                src={product.image_data}
+                                alt={product.name}
+                                className="h-14 w-14 rounded object-cover"
+                              />
+                            ) : (
+                              "-"
+                            )}
+                          </td>
+                          <td className="border p-2">{product.name}</td>
+                          <td className="border p-2">{product.description || "-"}</td>
+                          <td className="border p-2">Rs. {product.price}</td>
+                          <td className="border p-2">{product.stock}</td>
+                          <td className="border p-2">
+                            <button className="mr-2 rounded bg-blue-600 px-3 py-1 text-white" onClick={() => startEdit(product)}>Edit</button>
+                            <button className="rounded bg-red-600 px-3 py-1 text-white" onClick={() => deleteProduct(product.id)}>Delete</button>
+                          </td>
+                        </tr>
+                      )) : <tr><td className="border p-4 text-center" colSpan="6">No products found.</td></tr>}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
