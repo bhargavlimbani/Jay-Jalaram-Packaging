@@ -1,15 +1,15 @@
 const { DataTypes } = require("sequelize");
 const sequelize = require("../config/db");
 
-const User = sequelize.define("User", {
+const PendingRegistration = sequelize.define("PendingRegistration", {
   name: {
     type: DataTypes.STRING,
     allowNull: false,
   },
   email: {
     type: DataTypes.STRING,
-    unique: true,
     allowNull: false,
+    unique: true,
   },
   phone: {
     type: DataTypes.STRING,
@@ -19,30 +19,20 @@ const User = sequelize.define("User", {
     type: DataTypes.TEXT,
     allowNull: true,
   },
-  password: {
+  password_hash: {
     type: DataTypes.STRING,
     allowNull: false,
   },
-  reset_password_token: {
+  otp_hash: {
     type: DataTypes.STRING,
-    allowNull: true,
+    allowNull: false,
   },
-  reset_password_expires: {
+  otp_expires_at: {
     type: DataTypes.DATE,
-    allowNull: true,
+    allowNull: false,
   },
-  reset_password_otp_hash: {
-    type: DataTypes.STRING,
-    allowNull: true,
-  },
-  reset_password_otp_expires: {
-    type: DataTypes.DATE,
-    allowNull: true,
-  },
-  role: {
-    type: DataTypes.ENUM("admin", "customer"),
-    defaultValue: "customer",
-  },
+}, {
+  tableName: "pending_registrations",
 });
 
-module.exports = User;
+module.exports = PendingRegistration;

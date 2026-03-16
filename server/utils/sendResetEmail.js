@@ -1,41 +1,6 @@
-const nodemailer = require("nodemailer");
+const createTransporter = require("./emailTransporter");
 
-const createTransporter = () => {
-  const host = process.env.SMTP_HOST;
-  const port = Number(process.env.SMTP_PORT || 587);
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-
-  if (
-    !user ||
-    !pass ||
-    pass === "your-16-digit-gmail-app-password"
-  ) {
-    throw new Error("SMTP email settings are missing");
-  }
-
-  if (host) {
-    return nodemailer.createTransport({
-      host,
-      port,
-      secure: port === 465,
-      auth: {
-        user,
-        pass,
-      },
-    });
-  }
-
-  return nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-      user,
-      pass,
-    },
-  });
-};
-
-const sendResetEmail = async ({ to, name, resetLink }) => {
+const sendResetEmail = async ({ to, name, resetLink, otp }) => {
   const transporter = createTransporter();
   const fromEmail = process.env.MAIL_FROM || process.env.SMTP_USER;
 
@@ -53,7 +18,12 @@ const sendResetEmail = async ({ to, name, resetLink }) => {
             Reset Password
           </a>
         </p>
+        <p style="margin-top: 18px;">Or use this OTP to reset your password:</p>
+        <div style="display: inline-block; padding: 12px 18px; background: #f3f4f6; border-radius: 8px; font-size: 24px; font-weight: 700; letter-spacing: 6px;">
+          ${otp}
+        </div>
         <p>This link will expire in 15 minutes.</p>
+        <p>The OTP will also expire in 15 minutes.</p>
         <p>If you did not request this, you can ignore this email.</p>
       </div>
     `,

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { registerUser } from "../services/authService";
+import { registerUser, sendRegistrationOtp } from "../services/authService";
 
 function Register() {
   const [name, setName] = useState("");
@@ -8,14 +8,23 @@ function Register() {
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [password, setPassword] = useState("");
+  const [otp, setOtp] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [infoMessage, setInfoMessage] = useState("");
+  const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
   const navigate = useNavigate();
   const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-  const handleRegister = async () => {
+  const resetMessages = () => {
+    setErrorMessage("");
+    setInfoMessage("");
+  };
+
+  const handleSendOtp = async () => {
     try {
-      setErrorMessage("");
+      resetMessages();
 
       if (!name.trim() || !email.trim() || !password.trim()) {
         setErrorMessage("Name, email, and password are required");
@@ -27,11 +36,57 @@ function Register() {
         return;
       }
 
-      await registerUser(name.trim(), email.trim(), phone.trim(), address.trim(), password);
+      if (password.trim().length < 6) {
+        setErrorMessage("Password must be at least 6 characters");
+        return;
+      }
+
+      setLoading(true);
+      const response = await sendRegistrationOtp(
+        name.trim(),
+        email.trim(),
+        phone.trim(),
+        address.trim(),
+        password
+      );
+      setOtpSent(true);
+      setInfoMessage(response.message || "OTP sent to your email");
+    } catch (error) {
+      setErrorMessage(error.response?.data?.message || "Unable to send OTP");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRegister = async () => {
+    try {
+      resetMessages();
+
+      if (!otpSent) {
+        setErrorMessage("Please send OTP first");
+        return;
+      }
+
+      if (!/^\d{6}$/.test(otp.trim())) {
+        setErrorMessage("Please enter a valid 6-digit OTP");
+        return;
+      }
+
+      setLoading(true);
+      await registerUser(email.trim(), otp.trim());
       navigate("/login");
     } catch (error) {
       setErrorMessage(error.response?.data?.message || "Registration failed");
+    } finally {
+      setLoading(false);
     }
+  };
+
+  const handleEditDetails = () => {
+    setOtpSent(false);
+    setOtp("");
+    setInfoMessage("Details updated. Send a new OTP to continue.");
+    setErrorMessage("");
   };
 
   return (
@@ -52,8 +107,9 @@ function Register() {
               value={name}
               onChange={(e) => {
                 setName(e.target.value);
-                setErrorMessage("");
+                resetMessages();
               }}
+              disabled={otpSent}
               className="brand-input"
             />
           </div>
@@ -66,8 +122,9 @@ function Register() {
               value={email}
               onChange={(e) => {
                 setEmail(e.target.value);
-                setErrorMessage("");
+                resetMessages();
               }}
+              disabled={otpSent}
               className="brand-input"
             />
           </div>
@@ -80,8 +137,9 @@ function Register() {
               value={phone}
               onChange={(e) => {
                 setPhone(e.target.value);
-                setErrorMessage("");
+                resetMessages();
               }}
+              disabled={otpSent}
               className="brand-input"
             />
           </div>
@@ -94,8 +152,9 @@ function Register() {
               value={password}
               onChange={(e) => {
                 setPassword(e.target.value);
-                setErrorMessage("");
+                resetMessages();
               }}
+              disabled={otpSent}
               className="brand-input"
             />
           </div>
@@ -108,12 +167,37 @@ function Register() {
               value={address}
               onChange={(e) => {
                 setAddress(e.target.value);
-                setErrorMessage("");
+                resetMessages();
               }}
+              disabled={otpSent}
               className="brand-input"
             />
           </div>
+
+          {otpSent && (
+            <div className="md:col-span-2">
+              <label className="brand-label">Email OTP</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                placeholder="Enter 6-digit OTP"
+                value={otp}
+                onChange={(e) => {
+                  setOtp(e.target.value.replace(/\D/g, ""));
+                  resetMessages();
+                }}
+                className="brand-input"
+              />
+            </div>
+          )}
         </div>
+
+        {infoMessage && (
+          <p className="mt-4 rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+            {infoMessage}
+          </p>
+        )}
 
         {errorMessage && (
           <p className="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
@@ -121,13 +205,35 @@ function Register() {
           </p>
         )}
 
-        <button
-          type="button"
-          onClick={handleRegister}
-          className="brand-button mt-6 w-full"
-        >
-          Register
-        </button>
+        {!otpSent ? (
+          <button
+            type="button"
+            onClick={handleSendOtp}
+            disabled={loading}
+            className="brand-button mt-6 w-full disabled:opacity-60"
+          >
+            {loading ? "Sending OTP..." : "Send OTP"}
+          </button>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={handleRegister}
+              disabled={loading}
+              className="brand-button mt-6 w-full disabled:opacity-60"
+            >
+              {loading ? "Verifying..." : "Verify OTP & Register"}
+            </button>
+            <button
+              type="button"
+              onClick={handleEditDetails}
+              disabled={loading}
+              className="mt-3 w-full text-sm font-semibold text-amber-700 hover:underline disabled:opacity-60"
+            >
+              Change details and send new OTP
+            </button>
+          </>
+        )}
 
         <p className="mt-4 text-center text-sm text-gray-600">
           Already have an account?{" "}

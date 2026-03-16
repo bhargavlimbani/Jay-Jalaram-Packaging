@@ -1,4 +1,4 @@
-import { useContext } from "react";
+import { useContext, useState } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import { AuthContext } from "../context/AuthContext";
@@ -8,6 +8,13 @@ import largeBoxImage from "../assets/large.png";
 
 function Home() {
   const { user } = useContext(AuthContext);
+  const [selectedContact, setSelectedContact] = useState(null);
+
+  const contacts = [
+    { name: "Maheshbhai", phone: "9429315940" },
+    { name: "Bhargav", phone: "6355990290" },
+    { name: "Vijaybhai", phone: "9909309111" },
+  ];
 
   return (
     <div className="brand-page">
@@ -158,9 +165,17 @@ function Home() {
             </p>
           </div>
           <div className="grid gap-4 text-sm text-slate-200">
-            <p>Maheshbhai - 9429315940</p>
-            <p>Bhargav - 6355990290</p>
-            <p>Vijaybhai - 9909309111</p>
+            {contacts.map((contact) => (
+              <button
+                key={contact.phone}
+                type="button"
+                onClick={() => setSelectedContact(contact)}
+                className="w-full rounded-[18px] border border-white/10 bg-white/5 px-4 py-3 text-left transition hover:bg-white/10"
+              >
+                <span className="font-semibold text-white">{contact.name}</span>
+                <span className="ml-2 text-slate-300">{contact.phone}</span>
+              </button>
+            ))}
             <a
               href="https://maps.app.goo.gl/Kn4HBcCYZhP6kJVR7"
               target="_blank"
@@ -172,6 +187,40 @@ function Home() {
           </div>
         </div>
       </footer>
+
+      {selectedContact && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/60 p-4 sm:items-center">
+          <div className="w-full max-w-sm rounded-[28px] bg-white p-6 text-slate-900 shadow-2xl">
+            <p className="text-sm font-semibold text-amber-700">Contact {selectedContact.name}</p>
+            <h3 className="mt-2 text-2xl font-black">{selectedContact.phone}</h3>
+            <p className="mt-2 text-sm text-slate-600">Choose how you want to connect.</p>
+
+            <div className="mt-6 grid gap-3">
+              <a
+                href={`tel:${selectedContact.phone}`}
+                className="rounded-[18px] bg-[var(--brand-primary)] px-4 py-3 text-center font-semibold text-slate-950"
+              >
+                Call
+              </a>
+              <a
+                href={`https://wa.me/91${selectedContact.phone}`}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-[18px] bg-[#25D366] px-4 py-3 text-center font-semibold text-white"
+              >
+                WhatsApp
+              </a>
+              <button
+                type="button"
+                onClick={() => setSelectedContact(null)}
+                className="rounded-[18px] border border-slate-200 px-4 py-3 text-center font-semibold text-slate-700"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,11 +1,15 @@
 const User = require("../models/User");
+const PendingRegistration = require("../models/PendingRegistration");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const { Op } = require("sequelize");
 const sendResetEmail = require("../utils/sendResetEmail");
+const sendRegistrationOtpEmail = require("../utils/sendRegistrationOtpEmail");
 
 const isValidEmail = (email = "") => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+const normalizeEmail = (email = "") => email.trim().toLowerCase();
+const hashValue = (value = "") => crypto.createHash("sha256").update(value).digest("hex");
 
 const parseOrderItems = (order) => {
   try {
@@ -16,29 +20,115 @@ const parseOrderItems = (order) => {
   }
 };
 
-// REGISTER
-exports.register = async (req, res) => {
+exports.sendRegistrationOtp = async (req, res) => {
   try {
     const { name, email, phone, address, password } = req.body;
+    const normalizedEmail = normalizeEmail(email);
 
-    if (!isValidEmail(email)) {
+    if (!name?.trim() || !normalizedEmail || !password?.trim()) {
+      return res.status(400).json({ message: "Name, email, and password are required" });
+    }
+
+    if (!isValidEmail(normalizedEmail)) {
       return res.status(400).json({ message: "Please enter a valid email address" });
     }
 
-    const existingUser = await User.findOne({ where: { email } });
+    if (password.trim().length < 6) {
+      return res.status(400).json({ message: "Password must be at least 6 characters" });
+    }
+
+    const existingUser = await User.findOne({ where: { email: normalizedEmail } });
     if (existingUser) {
       return res.status(400).json({ message: "User already exists" });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const otp = String(Math.floor(100000 + Math.random() * 900000));
+    const hashedPassword = await bcrypt.hash(password.trim(), 10);
+    const otpHash = hashValue(otp);
+    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
+
+    await PendingRegistration.upsert({
+      name: name.trim(),
+      email: normalizedEmail,
+      phone: phone?.trim() || null,
+      address: address?.trim() || null,
+      password_hash: hashedPassword,
+      otp_hash: otpHash,
+      otp_expires_at: otpExpiry,
+    });
+
+    await sendRegistrationOtpEmail({
+      to: normalizedEmail,
+      name: name.trim(),
+      otp,
+    });
+
+    res.json({
+      message: `OTP sent to ${normalizedEmail}`,
+    });
+  } catch (error) {
+    if (error.message === "SMTP email settings are missing") {
+      return res.status(500).json({
+        message: "Please add your real Gmail App Password in server/.env for SMTP_PASS",
+      });
+    }
+
+    if (error.code === "EAUTH") {
+      return res.status(500).json({
+        message: "Gmail login failed. Check SMTP_USER and Gmail App Password in server/.env",
+      });
+    }
+
+    res.status(500).json({ message: "Unable to send OTP email right now" });
+  }
+};
+
+// REGISTER
+exports.register = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+    const normalizedEmail = normalizeEmail(email);
+
+    if (!isValidEmail(normalizedEmail)) {
+      return res.status(400).json({ message: "Please enter a valid email address" });
+    }
+
+    if (!otp || !/^\d{6}$/.test(String(otp).trim())) {
+      return res.status(400).json({ message: "Please enter a valid 6-digit OTP" });
+    }
+
+    const existingUser = await User.findOne({ where: { email: normalizedEmail } });
+    if (existingUser) {
+      return res.status(400).json({ message: "User already exists" });
+    }
+
+    const pendingRegistration = await PendingRegistration.findOne({
+      where: {
+        email: normalizedEmail,
+        otp_expires_at: {
+          [Op.gt]: new Date(),
+        },
+      },
+    });
+
+    if (!pendingRegistration) {
+      return res.status(400).json({ message: "OTP is invalid or expired. Please request a new OTP." });
+    }
+
+    const isOtpValid = pendingRegistration.otp_hash === hashValue(String(otp).trim());
+    if (!isOtpValid) {
+      return res.status(400).json({ message: "OTP is incorrect" });
+    }
 
     const user = await User.create({
-      name,
-      email,
-      phone,
-      address,
-      password: hashedPassword,
+      name: pendingRegistration.name,
+      email: pendingRegistration.email,
+      phone: pendingRegistration.phone,
+      address: pendingRegistration.address,
+      password: pendingRegistration.password_hash,
     });
+
+    await pendingRegistration.destroy();
 
     res.status(201).json({
       message: "User registered successfully",
@@ -51,7 +141,6 @@ exports.register = async (req, res) => {
         role: user.role,
       },
     });
-
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -62,11 +151,13 @@ exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    if (!isValidEmail(email)) {
+    const normalizedEmail = normalizeEmail(email);
+
+    if (!isValidEmail(normalizedEmail)) {
       return res.status(400).json({ message: "Please enter a valid email address" });
     }
 
-    const user = await User.findOne({ where: { email } });
+    const user = await User.findOne({ where: { email: normalizedEmail } });
     if (!user) {
       return res.status(400).json({ message: "Email is not registered" });
     }
@@ -83,7 +174,7 @@ exports.login = async (req, res) => {
     ];
 
     // 👇 Decide role dynamically
-    const role = adminEmails.includes(email) ? "admin" : "customer";
+    const role = adminEmails.includes(normalizedEmail) ? "admin" : "customer";
 
     const token = jwt.sign(
       { id: user.id, role: role },
@@ -139,12 +230,14 @@ exports.updateProfile = async (req, res) => {
 
     const { name, email, phone, address } = req.body;
 
-    if (email && !isValidEmail(email)) {
+    const normalizedEmail = email ? normalizeEmail(email) : null;
+
+    if (normalizedEmail && !isValidEmail(normalizedEmail)) {
       return res.status(400).json({ message: "Please enter a valid email address" });
     }
 
-    if (email && email !== user.email) {
-      const existingUser = await User.findOne({ where: { email } });
+    if (normalizedEmail && normalizedEmail !== user.email) {
+      const existingUser = await User.findOne({ where: { email: normalizedEmail } });
 
       if (existingUser && existingUser.id !== user.id) {
         return res.status(400).json({ message: "Email already in use" });
@@ -153,7 +246,7 @@ exports.updateProfile = async (req, res) => {
 
     await user.update({
       name: name ?? user.name,
-      email: email ?? user.email,
+      email: normalizedEmail ?? user.email,
       phone: phone ?? user.phone,
       address: address ?? user.address,
     });
@@ -231,17 +324,20 @@ exports.forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
 
-    if (!isValidEmail(email)) {
+    const normalizedEmail = normalizeEmail(email);
+
+    if (!isValidEmail(normalizedEmail)) {
       return res.status(400).json({ message: "Please enter a valid email address" });
     }
 
-    const user = await User.findOne({ where: { email } });
+    const user = await User.findOne({ where: { email: normalizedEmail } });
 
     if (!user) {
       return res.status(404).json({ message: "Email is not registered" });
     }
 
     const resetToken = crypto.randomBytes(32).toString("hex");
+    const resetOtp = String(Math.floor(100000 + Math.random() * 900000));
     const resetExpiry = new Date(Date.now() + 15 * 60 * 1000);
     const frontendBaseUrl = process.env.CLIENT_URL || "http://localhost:3000";
     const resetLink = `${frontendBaseUrl}/reset-password/${resetToken}`;
@@ -249,15 +345,18 @@ exports.forgotPassword = async (req, res) => {
     await user.update({
       reset_password_token: resetToken,
       reset_password_expires: resetExpiry,
+      reset_password_otp_hash: hashValue(resetOtp),
+      reset_password_otp_expires: resetExpiry,
     });
 
     await sendResetEmail({
       to: user.email,
       name: user.name,
       resetLink,
+      otp: resetOtp,
     });
 
-    res.json({ message: `Password reset link sent to ${user.email}` });
+    res.json({ message: `Password reset link and OTP sent to ${user.email}` });
   } catch (error) {
     if (error.message === "SMTP email settings are missing") {
       return res.status(500).json({
@@ -303,6 +402,54 @@ exports.resetPassword = async (req, res) => {
       password: hashedPassword,
       reset_password_token: null,
       reset_password_expires: null,
+      reset_password_otp_hash: null,
+      reset_password_otp_expires: null,
+    });
+
+    res.json({ message: "Password reset successfully" });
+  } catch (error) {
+    res.status(500).json({ message: "Unable to reset password right now" });
+  }
+};
+
+exports.resetPasswordWithOtp = async (req, res) => {
+  try {
+    const { email, otp, password } = req.body;
+    const normalizedEmail = normalizeEmail(email);
+
+    if (!isValidEmail(normalizedEmail)) {
+      return res.status(400).json({ message: "Please enter a valid email address" });
+    }
+
+    if (!otp || !/^\d{6}$/.test(String(otp).trim())) {
+      return res.status(400).json({ message: "Please enter a valid 6-digit OTP" });
+    }
+
+    if (!password || password.trim().length < 6) {
+      return res.status(400).json({ message: "Password must be at least 6 characters" });
+    }
+
+    const user = await User.findOne({
+      where: {
+        email: normalizedEmail,
+        reset_password_otp_expires: {
+          [Op.gt]: new Date(),
+        },
+      },
+    });
+
+    if (!user || user.reset_password_otp_hash !== hashValue(String(otp).trim())) {
+      return res.status(400).json({ message: "OTP is invalid or expired" });
+    }
+
+    const hashedPassword = await bcrypt.hash(password.trim(), 10);
+
+    await user.update({
+      password: hashedPassword,
+      reset_password_token: null,
+      reset_password_expires: null,
+      reset_password_otp_hash: null,
+      reset_password_otp_expires: null,
     });
 
     res.json({ message: "Password reset successfully" });

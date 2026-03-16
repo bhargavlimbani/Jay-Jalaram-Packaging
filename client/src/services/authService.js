@@ -12,13 +12,21 @@ export const loginUser = async (email, password) => {
 };
 
 // REGISTER
-export const registerUser = async (name, email, phone, address, password) => {
-  const res = await axios.post(`${API_URL}/register`, {
+export const sendRegistrationOtp = async (name, email, phone, address, password) => {
+  const res = await axios.post(`${API_URL}/register/send-otp`, {
     name,
     email,
     phone,
     address,
     password,
+  });
+  return res.data;
+};
+
+export const registerUser = async (email, otp) => {
+  const res = await axios.post(`${API_URL}/register`, {
+    email,
+    otp,
   });
   return res.data;
 };
@@ -50,5 +58,14 @@ export const forgotPasswordRequest = async (email) => {
 
 export const resetPasswordRequest = async (token, password) => {
   const res = await axios.post(`${API_URL}/reset-password/${token}`, { password });
+  return res.data;
+};
+
+export const resetPasswordWithOtpRequest = async (email, otp, password) => {
+  const res = await axios.post(`${API_URL}/reset-password-otp`, {
+    email,
+    otp,
+    password,
+  });
   return res.data;
 };
