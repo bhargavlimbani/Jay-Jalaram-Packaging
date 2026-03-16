@@ -96,106 +96,144 @@ function OrderForm() {
   };
 
   return (
-    <div>
+    <div className="brand-page">
       <Navbar />
 
-      <div className="flex justify-center mt-10">
-        <div className="bg-white p-8 shadow-lg rounded w-96">
-          <h2 className="text-2xl font-bold mb-6 text-center">
-            Custom Box Order
-          </h2>
+      <section className="brand-container py-8 lg:py-12">
+        <div className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
+          <div className="brand-panel p-8 md:p-10">
+            <p className="brand-kicker">Custom Manufacturing</p>
+            <h1 className="mt-3 text-4xl font-black">Build your box specification.</h1>
+            <p className="mt-4 text-sm leading-7 text-slate-600">
+              Share box size, quantity, design notes, and PDF artwork. We will review the request and confirm production through your order dashboard.
+            </p>
 
-          {message && (
-            <div className="mb-3 rounded bg-red-100 px-3 py-2 text-sm text-red-700">
-              {message}
+            <div className="mt-8 space-y-4">
+              <div className="rounded-[24px] bg-[var(--brand-surface-strong)] p-5">
+                <p className="text-sm font-semibold uppercase tracking-[0.18em] text-amber-800">
+                  Estimated Price
+                </p>
+                <p className="mt-2 text-4xl font-black">Rs. {price}</p>
+              </div>
+              <div className="rounded-[24px] bg-white p-5 text-sm leading-7 text-slate-600">
+                Upload PDF only. Maximum file size: 5 MB. Include print design, dieline, or special branding instructions if available.
+              </div>
             </div>
-          )}
-
-          <input
-            className="w-full border p-2 mb-3 rounded"
-            placeholder="Customer Name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-
-          <input
-            className="w-full border p-2 mb-3 rounded"
-            placeholder="Phone Number"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-          />
-
-          <input
-            className="w-full border p-2 mb-3 rounded"
-            placeholder="Box Length (inch)"
-            value={length}
-            onChange={(e) => setLength(e.target.value)}
-          />
-
-          <input
-            className="w-full border p-2 mb-3 rounded"
-            placeholder="Box Width (inch)"
-            value={width}
-            onChange={(e) => setWidth(e.target.value)}
-          />
-
-          <input
-            className="w-full border p-2 mb-3 rounded"
-            placeholder="Box Height (inch)"
-            value={height}
-            onChange={(e) => setHeight(e.target.value)}
-          />
-
-          <input
-            className="w-full border p-2 mb-3 rounded"
-            placeholder="Quantity"
-            value={quantity}
-            onChange={(e) => setQuantity(e.target.value)}
-          />
-
-          <div className="text-lg font-bold mb-3">
-            Estimated Price: Rs. {price}
           </div>
 
-          <textarea
-            className="w-full border p-2 mb-3 rounded"
-            placeholder="Custom Design Details"
-            value={customDesign}
-            onChange={(e) => setCustomDesign(e.target.value)}
-          />
+          <div className="brand-panel p-8 md:p-10">
+            <h2 className="text-3xl font-black">Custom Box Order</h2>
 
-          <input
-            type="file"
-            accept="application/pdf"
-            className="w-full border p-2 mb-3 rounded"
-            onChange={handleFileChange}
-          />
+            {message && (
+              <div className="mt-5 rounded-2xl bg-red-100 px-4 py-3 text-sm text-red-700">
+                {message}
+              </div>
+            )}
 
-          <p className="mb-3 text-xs text-gray-500">
-            Upload PDF only. Maximum size: 5 MB.
-          </p>
+            <div className="mt-6 grid gap-4 md:grid-cols-2">
+              <div className="md:col-span-2">
+                <label className="brand-label">Customer Name</label>
+                <input
+                  className="brand-input"
+                  placeholder="Customer Name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
+              </div>
 
-          {designFileName && (
-            <p className="mb-3 text-sm text-green-700">
-              Selected PDF: {designFileName}
-            </p>
-          )}
+              <div className="md:col-span-2">
+                <label className="brand-label">Phone Number</label>
+                <input
+                  className="brand-input"
+                  placeholder="Phone Number"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                />
+              </div>
 
-          <textarea
-            className="w-full border p-2 mb-3 rounded"
-            placeholder="Special Instructions"
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-          />
+              <div>
+                <label className="brand-label">Box Length</label>
+                <input
+                  className="brand-input"
+                  placeholder="Box Length (inch)"
+                  value={length}
+                  onChange={(e) => setLength(e.target.value)}
+                />
+              </div>
 
-          <button
-            className="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700"
-            onClick={handleSubmit}
-          >
-            Submit Order
-          </button>
+              <div>
+                <label className="brand-label">Box Width</label>
+                <input
+                  className="brand-input"
+                  placeholder="Box Width (inch)"
+                  value={width}
+                  onChange={(e) => setWidth(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="brand-label">Box Height</label>
+                <input
+                  className="brand-input"
+                  placeholder="Box Height (inch)"
+                  value={height}
+                  onChange={(e) => setHeight(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="brand-label">Quantity</label>
+                <input
+                  className="brand-input"
+                  placeholder="Quantity"
+                  value={quantity}
+                  onChange={(e) => setQuantity(e.target.value)}
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="brand-label">Custom Design Details</label>
+                <textarea
+                  className="brand-input min-h-[120px]"
+                  placeholder="Custom Design Details"
+                  value={customDesign}
+                  onChange={(e) => setCustomDesign(e.target.value)}
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="brand-label">Design PDF</label>
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  className="brand-input"
+                  onChange={handleFileChange}
+                />
+              </div>
+            </div>
+
+            {designFileName && (
+              <p className="mt-4 text-sm font-semibold text-green-700">
+                Selected PDF: {designFileName}
+              </p>
+            )}
+
+            <div className="mt-4">
+              <label className="brand-label">Special Instructions</label>
+              <textarea
+                className="brand-input min-h-[120px]"
+                placeholder="Special Instructions"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+              />
+            </div>
+
+            <button className="brand-button mt-6 w-full" onClick={handleSubmit}>
+              Submit Order
+            </button>
+          </div>
         </div>
-      </div>
+      </section>
     </div>
   );
 }

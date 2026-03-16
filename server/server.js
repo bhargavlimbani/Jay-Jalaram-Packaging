@@ -4,7 +4,7 @@ require("dotenv").config();
 require("./models/Product");
 require("./models/Order");
 require("./models/Invoice");
-require("./models/Material");
+require("./models/PendingRegistration");
 const Product = require("./models/Product");
 
 
@@ -53,10 +53,6 @@ app.use("/api/invoices", invoiceRoutes);
 
 const orderRoutes = require("./routes/orderRoutes");
 app.use("/api/orders", orderRoutes);
-const materialRoutes = require("./routes/materialRoutes");
-app.use("/api/materials", materialRoutes);
-
-
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

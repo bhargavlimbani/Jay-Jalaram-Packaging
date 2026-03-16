@@ -31,6 +31,14 @@ const User = sequelize.define("User", {
     type: DataTypes.DATE,
     allowNull: true,
   },
+  reset_password_otp_hash: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  reset_password_otp_expires: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
   role: {
     type: DataTypes.ENUM("admin", "customer"),
     defaultValue: "customer",
