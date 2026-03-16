@@ -7,6 +7,15 @@ const sendResetEmail = require("../utils/sendResetEmail");
 
 const isValidEmail = (email = "") => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
+const parseOrderItems = (order) => {
+  try {
+    const parsed = order.items ? JSON.parse(order.items) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    return [];
+  }
+};
+
 // REGISTER
 exports.register = async (req, res) => {
   try {
@@ -183,6 +192,7 @@ exports.getCustomerDetails = async (req, res) => {
   try {
     const Order = require("../models/Order");
     const Product = require("../models/Product");
+    const Invoice = require("../models/Invoice");
 
     const customer = await User.findOne({
       where: {
@@ -193,7 +203,7 @@ exports.getCustomerDetails = async (req, res) => {
       include: [
         {
           model: Order,
-          include: [Product],
+          include: [Product, Invoice],
         },
       ],
       order: [[Order, "createdAt", "DESC"]],
@@ -203,7 +213,15 @@ exports.getCustomerDetails = async (req, res) => {
       return res.status(404).json({ message: "Customer not found" });
     }
 
-    res.json(customer);
+    const plainCustomer = customer.toJSON();
+    plainCustomer.Orders = Array.isArray(plainCustomer.Orders)
+      ? plainCustomer.Orders.map((order) => ({
+          ...order,
+          items: parseOrderItems(order),
+        }))
+      : [];
+
+    res.json(plainCustomer);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

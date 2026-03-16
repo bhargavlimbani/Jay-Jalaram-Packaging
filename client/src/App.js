@@ -11,6 +11,7 @@ import CustomerDashboard from "./pages/CustomerDashboard";
 import PrivateRoute from "./components/PrivateRoute";
 import OrderForm from "./pages/OrderForm";
 import Profile from "./pages/Profile";
+import Invoices from "./pages/Invoices";
 
 function App() {
   return (
@@ -58,6 +59,14 @@ function App() {
           element={
             <PrivateRoute>
               <Profile />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/invoices"
+          element={
+            <PrivateRoute>
+              <Invoices />
             </PrivateRoute>
           }
         />

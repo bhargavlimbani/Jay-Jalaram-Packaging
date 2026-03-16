@@ -16,6 +16,10 @@ const Order = sequelize.define("Order", {
     type: DataTypes.DECIMAL(10, 2),
     allowNull: false,
   },
+  items: {
+    type: DataTypes.TEXT("long"),
+    allowNull: true,
+  },
   customer_name: {
     type: DataTypes.STRING,
     allowNull: true,

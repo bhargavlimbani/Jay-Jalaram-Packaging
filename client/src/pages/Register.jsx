@@ -35,16 +35,17 @@ function Register() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-100 px-4 py-10">
-      <div className="w-full max-w-xl rounded-2xl bg-white p-8 shadow-xl">
-        <h2 className="text-3xl font-bold text-gray-900">Create Account</h2>
-        <p className="mt-2 text-sm text-gray-600">
+    <div className="brand-auth-shell flex items-center justify-center">
+      <div className="brand-panel w-full max-w-3xl p-8 md:p-12">
+        <p className="brand-kicker">New Customer</p>
+        <h2 className="mt-3 text-4xl font-black text-gray-900">Create Account</h2>
+        <p className="mt-3 text-sm text-gray-600">
           Register to place orders, track history, and manage your profile.
         </p>
 
         <div className="mt-6 grid gap-4 md:grid-cols-2">
           <div className="md:col-span-2">
-            <label className="mb-1 block text-sm font-medium text-gray-700">Full Name</label>
+            <label className="brand-label">Full Name</label>
             <input
               type="text"
               placeholder="Enter your name"
@@ -53,12 +54,12 @@ function Register() {
                 setName(e.target.value);
                 setErrorMessage("");
               }}
-              className="w-full rounded-lg border border-gray-300 p-3 outline-none transition focus:border-blue-500"
+              className="brand-input"
             />
           </div>
 
           <div className="md:col-span-2">
-            <label className="mb-1 block text-sm font-medium text-gray-700">Email</label>
+            <label className="brand-label">Email</label>
             <input
               type="email"
               placeholder="Enter your email"
@@ -67,12 +68,12 @@ function Register() {
                 setEmail(e.target.value);
                 setErrorMessage("");
               }}
-              className="w-full rounded-lg border border-gray-300 p-3 outline-none transition focus:border-blue-500"
+              className="brand-input"
             />
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Phone Number</label>
+            <label className="brand-label">Phone Number</label>
             <input
               type="text"
               placeholder="Enter phone number"
@@ -81,12 +82,12 @@ function Register() {
                 setPhone(e.target.value);
                 setErrorMessage("");
               }}
-              className="w-full rounded-lg border border-gray-300 p-3 outline-none transition focus:border-blue-500"
+              className="brand-input"
             />
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Password</label>
+            <label className="brand-label">Password</label>
             <input
               type="password"
               placeholder="Create password"
@@ -95,12 +96,12 @@ function Register() {
                 setPassword(e.target.value);
                 setErrorMessage("");
               }}
-              className="w-full rounded-lg border border-gray-300 p-3 outline-none transition focus:border-blue-500"
+              className="brand-input"
             />
           </div>
 
           <div className="md:col-span-2">
-            <label className="mb-1 block text-sm font-medium text-gray-700">Address</label>
+            <label className="brand-label">Address</label>
             <textarea
               rows="4"
               placeholder="Enter your address"
@@ -109,13 +110,13 @@ function Register() {
                 setAddress(e.target.value);
                 setErrorMessage("");
               }}
-              className="w-full rounded-lg border border-gray-300 p-3 outline-none transition focus:border-blue-500"
+              className="brand-input"
             />
           </div>
         </div>
 
         {errorMessage && (
-          <p className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
+          <p className="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
             {errorMessage}
           </p>
         )}
@@ -123,14 +124,14 @@ function Register() {
         <button
           type="button"
           onClick={handleRegister}
-          className="mt-6 w-full rounded-lg bg-blue-600 p-3 font-semibold text-white transition hover:bg-blue-700"
+          className="brand-button mt-6 w-full"
         >
           Register
         </button>
 
         <p className="mt-4 text-center text-sm text-gray-600">
           Already have an account?{" "}
-          <Link to="/login" className="font-semibold text-blue-600 hover:underline">
+          <Link to="/login" className="font-semibold text-amber-700 hover:underline">
             Login
           </Link>
         </p>

@@ -32,15 +32,16 @@ function ForgotPassword() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-100 px-4 py-10">
-      <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-xl">
-        <h2 className="text-3xl font-bold text-gray-900">Forgot Password</h2>
-        <p className="mt-2 text-sm text-gray-600">
+    <div className="brand-auth-shell flex items-center justify-center">
+      <div className="brand-panel w-full max-w-lg p-8 md:p-10">
+        <p className="brand-kicker">Account Recovery</p>
+        <h2 className="mt-3 text-4xl font-black text-gray-900">Forgot Password</h2>
+        <p className="mt-3 text-sm text-gray-600">
           Enter your registered email and we will send a password reset link.
         </p>
 
         <div className="mt-6">
-          <label className="mb-1 block text-sm font-medium text-gray-700">Email</label>
+          <label className="brand-label">Email</label>
           <input
             type="email"
             placeholder="Enter your email"
@@ -50,18 +51,18 @@ function ForgotPassword() {
               setErrorMessage("");
               setMessage("");
             }}
-            className="w-full rounded-lg border border-gray-300 p-3 outline-none transition focus:border-blue-500"
+            className="brand-input"
           />
         </div>
 
         {errorMessage && (
-          <p className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
+          <p className="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
             {errorMessage}
           </p>
         )}
 
         {message && (
-          <p className="mt-4 rounded-lg bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
+          <p className="mt-4 rounded-2xl bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
             {message}
           </p>
         )}
@@ -70,14 +71,14 @@ function ForgotPassword() {
           type="button"
           onClick={handleReset}
           disabled={loading}
-          className="mt-6 w-full rounded-lg bg-blue-600 p-3 font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-400"
+          className="brand-button mt-6 w-full disabled:cursor-not-allowed disabled:opacity-60"
         >
           {loading ? "Sending..." : "Send Reset Link"}
         </button>
 
         <p className="mt-4 text-center text-sm text-gray-600">
           Remember your password?{" "}
-          <Link to="/login" className="font-semibold text-blue-600 hover:underline">
+          <Link to="/login" className="font-semibold text-amber-700 hover:underline">
             Back to Login
           </Link>
         </p>

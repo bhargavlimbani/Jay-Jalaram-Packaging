@@ -1,8 +1,10 @@
 import { useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import { AuthContext } from "../context/AuthContext";
 import { Bar } from "react-chartjs-2";
+import api from "../services/api";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -54,6 +56,25 @@ function AdminDashboard() {
   const [editingProductId, setEditingProductId] = useState(null);
   const [message, setMessage] = useState("");
   const [activeSection, setActiveSection] = useState("orders");
+  const [loadingOrderActionId, setLoadingOrderActionId] = useState(null);
+
+  const getOrderItems = (order) => {
+    if (Array.isArray(order.items) && order.items.length > 0) {
+      return order.items;
+    }
+
+    if (order.order_type === "product") {
+      return [
+        {
+          product_id: order.product_id,
+          product_name: order.Product?.name || "Product removed",
+          quantity: order.quantity,
+        },
+      ];
+    }
+
+    return [];
+  };
 
   useEffect(() => {
     fetchOrders();
@@ -63,12 +84,8 @@ function AdminDashboard() {
 
   const fetchOrders = async () => {
     try {
-      const res = await fetch("http://localhost:5000/api/orders", {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-      });
-      const data = await res.json();
+      const res = await api.get("/orders");
+      const data = res.data;
       setOrders(Array.isArray(data) ? data : Array.isArray(data.orders) ? data.orders : []);
     } catch (error) {
       console.log(error);
@@ -176,19 +193,8 @@ function AdminDashboard() {
 
   const updateStatus = async (id, status) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/orders/${id}/status`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-        body: JSON.stringify({ status }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setMessage(data.message || "Unable to update order status.");
-        return;
-      }
+      setLoadingOrderActionId(id);
+      await api.put(`/orders/${id}/status`, { status });
       setMessage(`Order ${status.toLowerCase()} successfully.`);
       fetchOrders();
       fetchProducts();
@@ -199,7 +205,43 @@ function AdminDashboard() {
       }
     } catch (error) {
       console.log(error);
-      setMessage("Something went wrong while updating order status.");
+      setMessage(error.response?.data?.message || "Something went wrong while updating order status.");
+    } finally {
+      setLoadingOrderActionId(null);
+    }
+  };
+
+  const generateInvoice = async (orderId) => {
+    try {
+      setLoadingOrderActionId(orderId);
+      await api.post(`/invoices/order/${orderId}`);
+      setMessage("Invoice generated successfully.");
+      await fetchOrders();
+      if (selectedCustomer?.id) {
+        await fetchCustomerDetails(selectedCustomer.id);
+      }
+    } catch (error) {
+      console.log(error);
+      setMessage(error.response?.data?.message || "Unable to generate invoice.");
+    } finally {
+      setLoadingOrderActionId(null);
+    }
+  };
+
+  const shareInvoice = async (invoiceId) => {
+    try {
+      setLoadingOrderActionId(invoiceId);
+      await api.put(`/invoices/${invoiceId}/share`);
+      setMessage("Invoice shared to customer successfully.");
+      await fetchOrders();
+      if (selectedCustomer?.id) {
+        await fetchCustomerDetails(selectedCustomer.id);
+      }
+    } catch (error) {
+      console.log(error);
+      setMessage(error.response?.data?.message || "Unable to share invoice.");
+    } finally {
+      setLoadingOrderActionId(null);
     }
   };
 
@@ -317,7 +359,9 @@ function AdminDashboard() {
   };
 
   const totalSales = Array.isArray(orders)
-    ? orders.reduce((sum, order) => sum + Number(order.total_price || 0), 0)
+    ? orders
+        .filter((order) => order.status === "Accepted")
+        .reduce((sum, order) => sum + Number(order.total_price || 0), 0)
     : 0;
 
   const viewPdf = (fileData, fileName) => {
@@ -437,6 +481,12 @@ function AdminDashboard() {
                 >
                   Product Management
                 </button>
+                <Link
+                  to="/invoices"
+                  className="block w-full rounded-lg px-4 py-3 text-left transition bg-slate-800 hover:bg-slate-700"
+                >
+                  Invoice Management
+                </Link>
                 <button
                   type="button"
                   className="w-full rounded-lg bg-red-600 px-4 py-3 text-left text-white transition hover:bg-red-700"
@@ -471,9 +521,17 @@ function AdminDashboard() {
                           <tr key={order.id}>
                             <td className="border p-2 align-top">{order.User?.name || "Customer"}</td>
                             <td className="border p-2 align-top">
-                              {order.order_type === "custom"
-                                ? `Custom Box (${order.box_length} x ${order.box_width} x ${order.box_height})`
-                                : order.Product?.name || "Product removed"}
+                              {order.order_type === "custom" ? (
+                                `Custom Box (${order.box_length} x ${order.box_width} x ${order.box_height})`
+                              ) : (
+                                <div className="space-y-1">
+                                  {getOrderItems(order).map((item, index) => (
+                                    <p key={`${order.id}-${item.product_id || index}`}>
+                                      {item.product_name} x {item.quantity}
+                                    </p>
+                                  ))}
+                                </div>
+                              )}
                             </td>
                             <td className="border p-2 align-top">{order.quantity}</td>
                             <td className="border p-2 align-top">Rs. {order.total_price}</td>
@@ -503,11 +561,20 @@ function AdminDashboard() {
                                 </div>
                               )}
                               {renderChatPanel(order.id)}
+                              {order.Invoice && (
+                                <div className="mt-3 rounded bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                                  Invoice: {order.Invoice.invoice_number}
+                                  {order.Invoice.is_shared_with_customer ? " (Shared)" : " (Not Shared)"}
+                                </div>
+                              )}
                             </td>
                             <td className="border p-2 align-top">
                               <button className="mb-2 mr-2 rounded bg-indigo-600 px-3 py-1 text-white hover:bg-indigo-700" onClick={() => fetchOrderChat(order.id)}>Chat</button>
-                              <button className="mr-2 rounded bg-green-600 px-3 py-1 text-white disabled:opacity-60" onClick={() => updateStatus(order.id, "Accepted")} disabled={order.status === "Accepted"}>Accept</button>
-                              <button className="rounded bg-red-600 px-3 py-1 text-white disabled:opacity-60" onClick={() => updateStatus(order.id, "Rejected")} disabled={order.status === "Rejected"}>Reject</button>
+                              <button className="mb-2 mr-2 rounded bg-green-600 px-3 py-1 text-white disabled:opacity-60" onClick={() => updateStatus(order.id, "Accepted")} disabled={loadingOrderActionId === order.id || order.status === "Accepted" || order.status === "Completed"}>Accept</button>
+                              <button className="mb-2 mr-2 rounded bg-emerald-700 px-3 py-1 text-white disabled:opacity-60" onClick={() => updateStatus(order.id, "Completed")} disabled={loadingOrderActionId === order.id || order.status !== "Accepted"}>Complete Order</button>
+                              <button className="mb-2 mr-2 rounded bg-amber-500 px-3 py-1 text-white disabled:opacity-60" onClick={() => generateInvoice(order.id)} disabled={loadingOrderActionId === order.id || order.status !== "Completed" || Boolean(order.Invoice)}>Make Invoice</button>
+                              <button className="mb-2 mr-2 rounded bg-sky-600 px-3 py-1 text-white disabled:opacity-60" onClick={() => shareInvoice(order.Invoice.id)} disabled={loadingOrderActionId === order.Invoice?.id || !order.Invoice || Boolean(order.Invoice.is_shared_with_customer)}>Share To Customer</button>
+                              <button className="rounded bg-red-600 px-3 py-1 text-white disabled:opacity-60" onClick={() => updateStatus(order.id, "Rejected")} disabled={loadingOrderActionId === order.id || order.status === "Rejected" || order.status === "Completed"}>Reject</button>
                             </td>
                           </tr>
                         ))
@@ -556,9 +623,17 @@ function AdminDashboard() {
                             <tr key={order.id}>
                               <td className="border p-2">{order.id}</td>
                               <td className="border p-2">
-                                {order.order_type === "custom"
-                                  ? `Custom Box (${order.box_length} x ${order.box_width} x ${order.box_height})`
-                                  : order.Product?.name || "Product removed"}
+                                {order.order_type === "custom" ? (
+                                  `Custom Box (${order.box_length} x ${order.box_width} x ${order.box_height})`
+                                ) : (
+                                  <div className="space-y-1">
+                                    {getOrderItems(order).map((item, index) => (
+                                      <p key={`${order.id}-${item.product_id || index}`}>
+                                        {item.product_name} x {item.quantity}
+                                      </p>
+                                    ))}
+                                  </div>
+                                )}
                               </td>
                               <td className="border p-2">{order.quantity}</td>
                               <td className="border p-2">Rs. {order.total_price}</td>

@@ -1,6 +1,23 @@
 const Order = require("../models/Order");
 const Product = require("../models/Product");
 const User = require("../models/User");
+const Invoice = require("../models/Invoice");
+const { createInvoiceForOrder } = require("./invoiceController");
+
+const parseOrderItems = (order) => {
+  try {
+    const parsed = order.items ? JSON.parse(order.items) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    return [];
+  }
+};
+
+const serializeOrder = (order) => {
+  const plainOrder = order.toJSON ? order.toJSON() : { ...order };
+  plainOrder.items = parseOrderItems(order);
+  return plainOrder;
+};
 
 const parseChatMessages = (order) => {
   try {
@@ -28,6 +45,7 @@ exports.placeOrder = async (req, res) => {
     const {
       product_id,
       quantity,
+      items,
       order_type,
       customer_name,
       customer_phone,
@@ -77,34 +95,71 @@ exports.placeOrder = async (req, res) => {
         include: [Product],
       });
 
-      return res.status(201).json(createdOrder);
+      return res.status(201).json(serializeOrder(createdOrder));
     }
 
-    if (!product_id || !quantity) {
+    const requestedItems = Array.isArray(items) && items.length > 0
+      ? items
+      : [{ product_id, quantity }];
+
+    if (!requestedItems.length) {
       return res.status(400).json({
-        message: "Product and quantity are required",
+        message: "At least one product is required",
       });
     }
 
-    const product = await Product.findByPk(product_id);
+    const normalizedItems = [];
+    let totalQuantity = 0;
+    let total_price = 0;
 
-    if (!product) {
-      return res.status(404).json({ message: "Product not found" });
+    for (const item of requestedItems) {
+      const currentProductId = Number(item?.product_id);
+      const parsedQuantity = Number(item?.quantity);
+
+      if (!Number.isInteger(currentProductId) || currentProductId <= 0) {
+        return res.status(400).json({ message: "Each cart item must include a valid product" });
+      }
+
+      if (!Number.isInteger(parsedQuantity) || parsedQuantity <= 0) {
+        return res.status(400).json({ message: "Each cart item must include a valid quantity" });
+      }
+
+      const product = await Product.findByPk(currentProductId);
+
+      if (!product) {
+        return res.status(404).json({ message: "One of the selected products was not found" });
+      }
+
+      if (product.name === "Custom Size Box" || product.name === "Custom Design Box") {
+        return res.status(400).json({
+          message: "Please use the custom box order form for custom box products",
+        });
+      }
+
+      if (Number(product.stock) < parsedQuantity) {
+        return res.status(400).json({
+          message: `Only ${product.stock} items left in stock for ${product.name}`,
+        });
+      }
+
+      const itemTotal = Number(product.price) * parsedQuantity;
+      totalQuantity += parsedQuantity;
+      total_price += itemTotal;
+      normalizedItems.push({
+        product_id: product.id,
+        product_name: product.name,
+        product_price: Number(product.price),
+        quantity: parsedQuantity,
+        total_price: Number(itemTotal.toFixed(2)),
+      });
     }
-
-    const parsedQuantity = Number(quantity);
-
-    if (!Number.isInteger(parsedQuantity) || parsedQuantity <= 0) {
-      return res.status(400).json({ message: "Quantity must be a positive number" });
-    }
-
-    const total_price = Number(product.price) * parsedQuantity;
 
     const order = await Order.create({
       user_id: req.user.id,
-      product_id,
-      quantity: parsedQuantity,
-      total_price,
+      product_id: normalizedItems.length === 1 ? normalizedItems[0].product_id : null,
+      quantity: totalQuantity,
+      total_price: Number(total_price.toFixed(2)),
+      items: JSON.stringify(normalizedItems),
       order_type: "product",
       chat_messages: JSON.stringify([]),
       status: "Pending",
@@ -114,7 +169,7 @@ exports.placeOrder = async (req, res) => {
       include: [Product],
     });
 
-    return res.status(201).json(createdOrder);
+    return res.status(201).json(serializeOrder(createdOrder));
 
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -126,11 +181,11 @@ exports.getMyOrders = async (req, res) => {
   try {
     const orders = await Order.findAll({
       where: { user_id: req.user.id },
-      include: [Product],
+      include: [Product, Invoice],
       order: [["createdAt", "DESC"]],
     });
 
-    res.json(orders);
+    res.json(orders.map(serializeOrder));
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -288,11 +343,11 @@ exports.sendOrderChatMessage = async (req, res) => {
 exports.getAllOrders = async (req, res) => {
   try {
     const orders = await Order.findAll({
-      include: [User, Product],
+      include: [User, Product, Invoice],
       order: [["createdAt", "DESC"]],
     });
 
-    res.json(orders);
+    res.json(orders.map(serializeOrder));
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -312,20 +367,45 @@ exports.updateOrderStatus = async (req, res) => {
       return res.status(404).json({ message: "Order not found" });
     }
 
-    if (
-      status === "Accepted" &&
-      order.status !== "Accepted" &&
-      order.order_type === "product" &&
-      order.Product
-    ) {
-      if (order.Product.stock < order.quantity) {
+    if (status === "Accepted" && order.status !== "Accepted" && order.order_type === "product") {
+      const orderItems = parseOrderItems(order);
+
+      if (orderItems.length > 0) {
+        for (const item of orderItems) {
+          const product = await Product.findByPk(item.product_id);
+
+          if (!product) {
+            return res.status(404).json({
+              message: `Product not found for order item ${item.product_name || item.product_id}`,
+            });
+          }
+
+          if (Number(product.stock) < Number(item.quantity)) {
+            return res.status(400).json({
+              message: `Insufficient stock to accept ${product.name}`,
+            });
+          }
+        }
+
+        for (const item of orderItems) {
+          const product = await Product.findByPk(item.product_id);
+          product.stock -= Number(item.quantity);
+          await product.save();
+        }
+      } else if (order.Product) {
+        if (order.Product.stock < order.quantity) {
+          return res.status(400).json({
+            message: "Insufficient stock to accept this order",
+          });
+        }
+
+        order.Product.stock -= order.quantity;
+        await order.Product.save();
+      } else {
         return res.status(400).json({
-          message: "Insufficient stock to accept this order",
+          message: "This order has no valid product items to accept",
         });
       }
-
-      order.Product.stock -= order.quantity;
-      await order.Product.save();
     }
 
     order.status = status;
@@ -339,7 +419,7 @@ exports.updateOrderStatus = async (req, res) => {
 
     res.json({
       message: "Order status updated successfully",
-      order,
+      order: serializeOrder(order),
     });
 
   } catch (error) {
