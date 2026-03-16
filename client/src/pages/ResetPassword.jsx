@@ -25,6 +25,7 @@ function ResetPassword() {
         setErrorMessage("Passwords do not match");
         return;
       }
+      
 
       setLoading(true);
       const res = await resetPasswordRequest(token, password);
