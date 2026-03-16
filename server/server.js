@@ -25,6 +25,7 @@ sequelize.sync({ alter: true }).then(async () => {
   await Product.findOrCreate({
     where: { name: "Custom Size Box" },
     defaults: {
+      box_type: "corrugated-box",
       description: "Box made as per customer size requirement",
       price: 50,
       stock: 100,
@@ -34,6 +35,7 @@ sequelize.sync({ alter: true }).then(async () => {
   await Product.findOrCreate({
     where: { name: "Custom Design Box" },
     defaults: {
+      box_type: "printed-corrugated-box",
       description: "Printed and designed box for brand packaging",
       price: 80,
       stock: 100,

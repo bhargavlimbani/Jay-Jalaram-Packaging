@@ -10,8 +10,8 @@ function Products() {
   const selectedCategory = searchParams.get("category") || "";
   const categoryTitleMap = {
     "carton-box": "Carton Box",
-    "corucated-box": "Corucated Box",
-    "printed-corucated-box": "Printed Corucated Box",
+    "corrugated-box": "Corrugated Box",
+    "printed-corrugated-box": "Printed Corrugated Box",
     "duplex-box": "Duplex Box",
   };
   const categoryOptions = [
@@ -19,23 +19,7 @@ function Products() {
     ...Object.entries(categoryTitleMap).map(([value, label]) => ({ value, label })),
   ];
 
-  const inferCategory = (product) => {
-    const text = `${product.name || ""} ${product.description || ""}`.toLowerCase();
-
-    if (text.includes("printed")) {
-      return "printed-corucated-box";
-    }
-
-    if (text.includes("duplex")) {
-      return "duplex-box";
-    }
-
-    if (text.includes("carton")) {
-      return "carton-box";
-    }
-
-    return "corucated-box";
-  };
+  const getProductCategory = (product) => product.box_type || "corrugated-box";
 
   useEffect(() => {
     const loadProducts = async () => {
@@ -53,7 +37,7 @@ function Products() {
 
   const filteredProducts = products.filter((product) => {
     const matchesSearch = product.name.toLowerCase().includes(search.toLowerCase());
-    const matchesCategory = !selectedCategory || inferCategory(product) === selectedCategory;
+    const matchesCategory = !selectedCategory || getProductCategory(product) === selectedCategory;
     return matchesSearch && matchesCategory;
   });
 
@@ -119,7 +103,7 @@ function Products() {
 
                 <div className="p-2 pt-5">
                   <p className="brand-kicker">
-                    {categoryTitleMap[inferCategory(product)] || "Packaging Box"}
+                    {categoryTitleMap[getProductCategory(product)] || "Packaging Box"}
                   </p>
 
                   <h3 className="mt-2 text-2xl font-black">{product.name}</h3>

@@ -1,4 +1,4 @@
-import { useContext, useEffect, useState } from "react";
+import { useCallback, useContext, useEffect, useState } from "react";
 import Navbar from "../components/Navbar";
 import api from "../services/api";
 import { AuthContext } from "../context/AuthContext";
@@ -8,25 +8,27 @@ function Invoices() {
   const [invoices, setInvoices] = useState([]);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
+  const [loadingInvoiceId, setLoadingInvoiceId] = useState(null);
+
+  const loadInvoices = useCallback(async () => {
+    try {
+      setLoading(true);
+      const endpoint = user?.role === "admin" ? "/invoices" : "/invoices/mine";
+      const res = await api.get(endpoint);
+      setInvoices(Array.isArray(res.data) ? res.data : []);
+    } catch (error) {
+      console.log(error);
+      setMessage(error.response?.data?.message || "Unable to load invoices.");
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.role]);
 
   useEffect(() => {
-    const loadInvoices = async () => {
-      try {
-        const endpoint = user?.role === "admin" ? "/invoices" : "/invoices/mine";
-        const res = await api.get(endpoint);
-        setInvoices(Array.isArray(res.data) ? res.data : []);
-      } catch (error) {
-        console.log(error);
-        setMessage(error.response?.data?.message || "Unable to load invoices.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
     if (user?.role) {
       loadInvoices();
     }
-  }, [user]);
+  }, [user?.role, loadInvoices]);
 
   const openInvoicePdf = async (invoiceId, fileName, shouldDownload = false) => {
     try {
@@ -50,6 +52,20 @@ function Invoices() {
     } catch (error) {
       console.log(error);
       setMessage(error.response?.data?.message || "Unable to open invoice PDF.");
+    }
+  };
+
+  const shareInvoiceToCustomer = async (invoiceId) => {
+    try {
+      setLoadingInvoiceId(invoiceId);
+      const res = await api.put(`/invoices/${invoiceId}/share`);
+      setMessage(res.data?.message || "Invoice shared to customer successfully.");
+      await loadInvoices();
+    } catch (error) {
+      console.log(error);
+      setMessage(error.response?.data?.message || "Unable to share invoice.");
+    } finally {
+      setLoadingInvoiceId(null);
     }
   };
 
@@ -127,6 +143,22 @@ function Invoices() {
                           >
                             Download PDF
                           </button>
+                          {user?.role === "admin" && (
+                            <button
+                              className="rounded-full bg-sky-600 px-4 py-2 text-xs font-semibold text-white disabled:opacity-60"
+                              onClick={() => shareInvoiceToCustomer(invoice.id)}
+                              disabled={
+                                loadingInvoiceId === invoice.id ||
+                                Boolean(invoice.is_shared_with_customer)
+                              }
+                          >
+                            {invoice.is_shared_with_customer
+                              ? "Shared"
+                              : loadingInvoiceId === invoice.id
+                                ? "Sharing..."
+                                : "Share To Customer"}
+                          </button>
+                          )}
                         </div>
                       </td>
                     </tr>

@@ -5,8 +5,17 @@ import api from "../services/api";
 
 function OrderForm() {
   const MAX_PDF_SIZE_BYTES = 5 * 1024 * 1024;
+  const COUNTRY_OPTIONS = [
+    { code: "IN", label: "India", dialCode: "+91", minDigits: 10, maxDigits: 10 },
+    { code: "US", label: "United States", dialCode: "+1", minDigits: 10, maxDigits: 10 },
+    { code: "GB", label: "United Kingdom", dialCode: "+44", minDigits: 10, maxDigits: 10 },
+    { code: "AE", label: "UAE", dialCode: "+971", minDigits: 8, maxDigits: 9 },
+    { code: "AU", label: "Australia", dialCode: "+61", minDigits: 9, maxDigits: 9 },
+    { code: "OTHER", label: "Other Country", dialCode: "+", minDigits: 7, maxDigits: 15 },
+  ];
   const navigate = useNavigate();
   const [name, setName] = useState("");
+  const [selectedCountryCode, setSelectedCountryCode] = useState("IN");
   const [phone, setPhone] = useState("");
   const [length, setLength] = useState("");
   const [width, setWidth] = useState("");
@@ -36,6 +45,32 @@ function OrderForm() {
 
     setPrice(Number((l * w * h * q * rate).toFixed(2)));
   }, [length, width, height, quantity]);
+  const selectedCountry =
+    COUNTRY_OPTIONS.find((country) => country.code === selectedCountryCode) || COUNTRY_OPTIONS[0];
+
+  const handlePhoneChange = (event) => {
+    const nextValue = event.target.value.replace(/\D/g, "");
+
+    if (nextValue.length <= selectedCountry.maxDigits) {
+      setPhone(nextValue);
+    }
+  };
+
+  const handleDecimalInputChange = (setter) => (event) => {
+    const nextValue = event.target.value;
+
+    if (/^\d*\.?\d*$/.test(nextValue)) {
+      setter(nextValue);
+    }
+  };
+
+  const handleQuantityChange = (event) => {
+    const nextValue = event.target.value;
+
+    if (/^\d*$/.test(nextValue)) {
+      setQuantity(nextValue);
+    }
+  };
 
   const handleFileChange = (event) => {
     const file = event.target.files?.[0];
@@ -70,15 +105,50 @@ function OrderForm() {
   };
 
   const handleSubmit = async () => {
+    const trimmedName = name.trim();
+    const trimmedPhone = phone.trim();
+    const parsedLength = Number(length);
+    const parsedWidth = Number(width);
+    const parsedHeight = Number(height);
+    const parsedQuantity = Number(quantity);
+    const fullPhoneNumber = `${selectedCountry.dialCode}${trimmedPhone}`;
+
+    if (!trimmedName || !trimmedPhone || !length || !width || !height || !quantity) {
+      setMessage("Please fill all custom box details.");
+      return;
+    }
+
+    if (
+      trimmedPhone.length < selectedCountry.minDigits ||
+      trimmedPhone.length > selectedCountry.maxDigits
+    ) {
+      setMessage(
+        selectedCountry.code === "IN"
+          ? "For India, please enter exactly 10 mobile digits."
+          : `Please enter a valid mobile number with ${selectedCountry.minDigits} to ${selectedCountry.maxDigits} digits.`
+      );
+      return;
+    }
+
+    if ([parsedLength, parsedWidth, parsedHeight].some((value) => Number.isNaN(value) || value <= 0)) {
+      setMessage("Box length, width, and height must be valid numbers greater than 0.");
+      return;
+    }
+
+    if (!Number.isInteger(parsedQuantity) || parsedQuantity <= 0) {
+      setMessage("Quantity must be a whole number greater than 0.");
+      return;
+    }
+
     try {
       await api.post("/orders", {
         order_type: "custom",
-        customer_name: name,
-        customer_phone: phone,
-        box_length: length,
-        box_width: width,
-        box_height: height,
-        quantity,
+        customer_name: trimmedName,
+        customer_phone: fullPhoneNumber,
+        box_length: parsedLength,
+        box_width: parsedWidth,
+        box_height: parsedHeight,
+        quantity: parsedQuantity,
         total_price: price,
         custom_design: customDesign,
         design_file_name: designFileName,
@@ -143,12 +213,38 @@ function OrderForm() {
 
               <div className="md:col-span-2">
                 <label className="brand-label">Phone Number</label>
-                <input
-                  className="brand-input"
-                  placeholder="Phone Number"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                />
+                <div className="grid gap-3 md:grid-cols-[200px_minmax(0,1fr)]">
+                  <select
+                    className="brand-input"
+                    value={selectedCountryCode}
+                    onChange={(e) => {
+                      setSelectedCountryCode(e.target.value);
+                      setPhone("");
+                    }}
+                  >
+                    {COUNTRY_OPTIONS.map((country) => (
+                      <option key={country.code} value={country.code}>
+                        {country.label} ({country.dialCode})
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    className="brand-input"
+                    placeholder={
+                      selectedCountry.code === "IN"
+                        ? "Enter 10 digit mobile number"
+                        : "Enter mobile number"
+                    }
+                    value={phone}
+                    onChange={handlePhoneChange}
+                    inputMode="numeric"
+                  />
+                </div>
+                <p className="mt-2 text-xs text-slate-500">
+                  {selectedCountry.code === "IN"
+                    ? "India mobile number must be exactly 10 digits."
+                    : `This country accepts ${selectedCountry.minDigits} to ${selectedCountry.maxDigits} digits.`}
+                </p>
               </div>
 
               <div>
@@ -157,7 +253,8 @@ function OrderForm() {
                   className="brand-input"
                   placeholder="Box Length (inch)"
                   value={length}
-                  onChange={(e) => setLength(e.target.value)}
+                  onChange={handleDecimalInputChange(setLength)}
+                  inputMode="decimal"
                 />
               </div>
 
@@ -167,7 +264,8 @@ function OrderForm() {
                   className="brand-input"
                   placeholder="Box Width (inch)"
                   value={width}
-                  onChange={(e) => setWidth(e.target.value)}
+                  onChange={handleDecimalInputChange(setWidth)}
+                  inputMode="decimal"
                 />
               </div>
 
@@ -177,7 +275,8 @@ function OrderForm() {
                   className="brand-input"
                   placeholder="Box Height (inch)"
                   value={height}
-                  onChange={(e) => setHeight(e.target.value)}
+                  onChange={handleDecimalInputChange(setHeight)}
+                  inputMode="decimal"
                 />
               </div>
 
@@ -187,7 +286,8 @@ function OrderForm() {
                   className="brand-input"
                   placeholder="Quantity"
                   value={quantity}
-                  onChange={(e) => setQuantity(e.target.value)}
+                  onChange={handleQuantityChange}
+                  inputMode="numeric"
                 />
               </div>
 
