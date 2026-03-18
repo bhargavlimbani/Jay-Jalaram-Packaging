@@ -55,6 +55,7 @@ function Profile() {
     }
   };
 
+  // ... 
   const handleLogout = () => {
     logout();
     navigate("/");
