@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { useContext, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import { AuthContext } from "../context/AuthContext";
 import logo from "../assets/logo.png";
 
@@ -7,18 +7,45 @@ function Navbar() {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
   const [showProductsMenu, setShowProductsMenu] = useState(false);
+  const closeMenuTimeoutRef = useRef(null);
 
   const productCategories = [
     { label: "Carton Box", value: "carton-box" },
-    { label: "Corucated Box", value: "corucated-box" },
-    { label: "Printed Corucated Box", value: "printed-corucated-box" },
+    { label: "Corrugated Box", value: "corrugated-box" },
+    { label: "Printed Corrugated Box", value: "printed-corrugated-box" },
     { label: "Duplex Box", value: "duplex-box" },
   ];
 
   const openCategory = (category) => {
+    if (closeMenuTimeoutRef.current) {
+      clearTimeout(closeMenuTimeoutRef.current);
+    }
     setShowProductsMenu(false);
     navigate(`/products?category=${category}`);
   };
+
+  const openProductsMenu = () => {
+    if (closeMenuTimeoutRef.current) {
+      clearTimeout(closeMenuTimeoutRef.current);
+    }
+    setShowProductsMenu(true);
+  };
+
+  const closeProductsMenuWithDelay = () => {
+    if (closeMenuTimeoutRef.current) {
+      clearTimeout(closeMenuTimeoutRef.current);
+    }
+
+    closeMenuTimeoutRef.current = setTimeout(() => {
+      setShowProductsMenu(false);
+    }, 180);
+  };
+
+  useEffect(() => () => {
+    if (closeMenuTimeoutRef.current) {
+      clearTimeout(closeMenuTimeoutRef.current);
+    }
+  }, []);
 
   return (
     <header className="sticky top-0 z-40 border-b border-black/5 bg-white/80 backdrop-blur-xl">
@@ -50,8 +77,8 @@ function Navbar() {
 
             <div
               className="relative"
-              onMouseEnter={() => setShowProductsMenu(true)}
-              onMouseLeave={() => setShowProductsMenu(false)}
+              onMouseEnter={openProductsMenu}
+              onMouseLeave={closeProductsMenuWithDelay}
             >
               <button
                 type="button"
@@ -62,24 +89,34 @@ function Navbar() {
               </button>
 
               {showProductsMenu && (
-                <div className="absolute right-0 z-20 mt-3 min-w-[250px] rounded-[24px] border border-black/10 bg-white p-3 shadow-2xl md:right-auto md:left-0">
-                  {productCategories.map((category) => (
-                    <button
-                      key={category.value}
-                      type="button"
-                      className="block w-full rounded-2xl px-4 py-3 text-left text-sm hover:bg-amber-50"
-                      onClick={() => openCategory(category.value)}
+                <div
+                  className="absolute right-0 z-20 pt-3 md:right-auto md:left-0"
+                  onMouseEnter={openProductsMenu}
+                  onMouseLeave={closeProductsMenuWithDelay}
+                >
+                  <div className="absolute inset-x-0 -top-3 h-3" />
+                  <div className="min-w-[250px] rounded-[24px] border border-black/10 bg-white p-3 shadow-2xl">
+                    {productCategories.map((category) => (
+                      <button
+                        key={category.value}
+                        type="button"
+                        className="block w-full rounded-2xl px-4 py-3 text-left text-sm hover:bg-amber-50"
+                        onClick={() => openCategory(category.value)}
+                      >
+                        {category.label}
+                      </button>
+                    ))}
+                    <Link
+                      to="/order"
+                      className="mt-2 block w-full rounded-2xl px-4 py-3 text-left text-sm hover:bg-amber-50"
+                      onClick={() => setShowProductsMenu(false)}
                     >
-                      {category.label}
-                    </button>
-                  ))}
+                      Custom Order
+                    </Link>
+                  </div>
                 </div>
               )}
             </div>
-
-            <Link to="/order" className="rounded-full px-4 py-2 hover:bg-amber-50">
-              Custom Order
-            </Link>
 
             {user?.role === "admin" && (
               <Link to="/admin" className="rounded-full px-4 py-2 hover:bg-amber-50">

@@ -170,7 +170,8 @@ exports.login = async (req, res) => {
     // 👇 Define admin emails
     const adminEmails = [
       "limbanibhargavmaheshbhai@gmail.com",
-      "jayjalarampackaging1@gmail.com"
+      "jayjalarampackaging1@gmail.com",
+      "bhargavlimbani396@gmail.com"
     ];
 
     // 👇 Decide role dynamically
@@ -270,8 +271,12 @@ exports.updateProfile = async (req, res) => {
 exports.getCustomers = async (req, res) => {
   try {
     const customers = await User.findAll({
-      where: { role: "customer" },
-      attributes: ["id", "name", "email", "phone", "address", "createdAt"],
+      where: {
+        role: {
+          [Op.in]: ["customer", "admin"],
+        },
+      },
+      attributes: ["id", "name", "email", "phone", "address", "role", "createdAt"],
       order: [["createdAt", "DESC"]],
     });
 
@@ -290,9 +295,8 @@ exports.getCustomerDetails = async (req, res) => {
     const customer = await User.findOne({
       where: {
         id: req.params.id,
-        role: "customer",
       },
-      attributes: ["id", "name", "email", "phone", "address", "createdAt"],
+      attributes: ["id", "name", "email", "phone", "address", "role", "createdAt"],
       include: [
         {
           model: Order,

@@ -15,6 +15,7 @@ import {
   Legend,
 } from "chart.js";
 
+// ..
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -25,6 +26,12 @@ ChartJS.register(
 );
 
 function AdminDashboard() {
+  const boxTypeOptions = [
+    { label: "Carton Box", value: "carton-box" },
+    { label: "Corrugated Box", value: "corrugated-box" },
+    { label: "Printed Corrugated Box", value: "printed-corrugated-box" },
+    { label: "Duplex Box", value: "duplex-box" },
+  ];
   const { logout } = useContext(AuthContext);
   const navigate = useNavigate();
   const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
@@ -47,6 +54,7 @@ function AdminDashboard() {
   const [chatInputs, setChatInputs] = useState({});
   const [openChatOrderId, setOpenChatOrderId] = useState(null);
   const [productForm, setProductForm] = useState({
+    box_type: "corrugated-box",
     name: "",
     description: "",
     image_data: "",
@@ -55,8 +63,19 @@ function AdminDashboard() {
   });
   const [editingProductId, setEditingProductId] = useState(null);
   const [message, setMessage] = useState("");
-  const [activeSection, setActiveSection] = useState("orders");
+  const [activeSection, setActiveSection] = useState("customers");
   const [loadingOrderActionId, setLoadingOrderActionId] = useState(null);
+
+  const formatOrderDateTime = (value) => {
+    if (!value) {
+      return "-";
+    }
+
+    return new Intl.DateTimeFormat("en-IN", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    }).format(new Date(value));
+  };
 
   const getOrderItems = (order) => {
     if (Array.isArray(order.items) && order.items.length > 0) {
@@ -194,8 +213,8 @@ function AdminDashboard() {
   const updateStatus = async (id, status) => {
     try {
       setLoadingOrderActionId(id);
-      await api.put(`/orders/${id}/status`, { status });
-      setMessage(`Order ${status.toLowerCase()} successfully.`);
+      const res = await api.put(`/orders/${id}/status`, { status });
+      setMessage(res.data?.message || `Order ${status.toLowerCase()} successfully.`);
       fetchOrders();
       fetchProducts();
       fetchCustomers();
@@ -228,25 +247,15 @@ function AdminDashboard() {
     }
   };
 
-  const shareInvoice = async (invoiceId) => {
-    try {
-      setLoadingOrderActionId(invoiceId);
-      await api.put(`/invoices/${invoiceId}/share`);
-      setMessage("Invoice shared to customer successfully.");
-      await fetchOrders();
-      if (selectedCustomer?.id) {
-        await fetchCustomerDetails(selectedCustomer.id);
-      }
-    } catch (error) {
-      console.log(error);
-      setMessage(error.response?.data?.message || "Unable to share invoice.");
-    } finally {
-      setLoadingOrderActionId(null);
-    }
-  };
-
   const resetForm = () => {
-    setProductForm({ name: "", description: "", image_data: "", price: "", stock: "" });
+    setProductForm({
+      box_type: "corrugated-box",
+      name: "",
+      description: "",
+      image_data: "",
+      price: "",
+      stock: "",
+    });
     setEditingProductId(null);
   };
 
@@ -314,6 +323,7 @@ function AdminDashboard() {
   const startEdit = (product) => {
     setEditingProductId(product.id);
     setProductForm({
+      box_type: product.box_type || "corrugated-box",
       name: product.name || "",
       description: product.description || "",
       image_data: product.image_data || "",
@@ -360,7 +370,7 @@ function AdminDashboard() {
 
   const totalSales = Array.isArray(orders)
     ? orders
-        .filter((order) => order.status === "Accepted")
+        .filter((order) => order.status === "Completed")
         .reduce((sum, order) => sum + Number(order.total_price || 0), 0)
     : 0;
 
@@ -428,6 +438,106 @@ function AdminDashboard() {
       </div>
     ) : null;
 
+  const renderOrdersTable = (ordersToRender, title, emptyMessage, showActionButtons = true) => (
+    <div className="rounded-2xl bg-white p-6 shadow-sm">
+      <h2 className="mb-4 text-2xl font-bold">{title}</h2>
+      <div className="overflow-x-auto">
+        <table className="mb-2 w-full border bg-white">
+          <thead>
+            <tr className="bg-gray-200">
+              <th className="border p-2">Customer</th>
+              <th className="border p-2">Date & Time</th>
+              <th className="border p-2">Product</th>
+              <th className="border p-2">Quantity</th>
+              <th className="border p-2">Total Price</th>
+              <th className="border p-2">Status</th>
+              <th className="border p-2">Chat</th>
+              <th className="border p-2">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {ordersToRender.length > 0 ? (
+              ordersToRender.map((order) => (
+                <tr key={order.id}>
+                  <td className="border p-2 align-top">{order.User?.name || "Customer"}</td>
+                  <td className="border p-2 align-top">{formatOrderDateTime(order.createdAt)}</td>
+                  <td className="border p-2 align-top">
+                    {order.order_type === "custom" ? (
+                      `Custom Box (${order.box_length} x ${order.box_width} x ${order.box_height})`
+                    ) : (
+                      <div className="space-y-1">
+                        {getOrderItems(order).map((item, index) => (
+                          <p key={`${order.id}-${item.product_id || index}`}>
+                            {item.product_name} x {item.quantity}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                  </td>
+                  <td className="border p-2 align-top">{order.quantity}</td>
+                  <td className="border p-2 align-top">Rs. {order.total_price}</td>
+                  <td className="border p-2 align-top">{order.status}</td>
+                  <td className="border p-2 align-top">
+                    {order.customer_reply && (
+                      <p className="mb-2 text-sm text-blue-700">Customer reply: {order.customer_reply}</p>
+                    )}
+                    {order.design_file_data && (
+                      <div className="mt-2 text-sm">
+                        <button
+                          type="button"
+                          className="mr-3 text-blue-700 underline"
+                          onClick={() =>
+                            viewPdf(order.design_file_data, order.design_file_name)
+                          }
+                        >
+                          View PDF
+                        </button>
+                        <a
+                          className="text-blue-700 underline"
+                          href={order.design_file_data}
+                          download={order.design_file_name || "design.pdf"}
+                        >
+                          Download PDF
+                        </a>
+                      </div>
+                    )}
+                    {renderChatPanel(order.id)}
+                    {order.Invoice && (
+                      <div className="mt-3 rounded bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                        Invoice: {order.Invoice.invoice_number}
+                        {order.Invoice.is_shared_with_customer ? " (Shared)" : " (Not Shared)"}
+                      </div>
+                    )}
+                  </td>
+                  <td className="border p-2 align-top">
+                    <button
+                      className="mb-2 mr-2 rounded bg-indigo-600 px-3 py-1 text-white hover:bg-indigo-700"
+                      onClick={() => fetchOrderChat(order.id)}
+                    >
+                      Chat
+                    </button>
+                    {showActionButtons ? (
+                      <>
+                        <button className="mb-2 mr-2 rounded bg-green-600 px-3 py-1 text-white disabled:opacity-60" onClick={() => updateStatus(order.id, "Accepted")} disabled={loadingOrderActionId === order.id || order.status === "Accepted" || order.status === "Completed"}>Accept</button>
+                        <button className="mb-2 mr-2 rounded bg-emerald-700 px-3 py-1 text-white disabled:opacity-60" onClick={() => updateStatus(order.id, "Completed")} disabled={loadingOrderActionId === order.id || order.status !== "Accepted"}>Complete Order</button>
+                        <button className="mb-2 mr-2 rounded bg-amber-500 px-3 py-1 text-white disabled:opacity-60" onClick={() => generateInvoice(order.id)} disabled={loadingOrderActionId === order.id || order.status !== "Completed" || Boolean(order.Invoice)}>Make Invoice</button>
+                        <button className="rounded bg-red-600 px-3 py-1 text-white disabled:opacity-60" onClick={() => updateStatus(order.id, "Rejected")} disabled={loadingOrderActionId === order.id || order.status === "Rejected" || order.status === "Completed"}>Reject</button>
+                      </>
+                    ) : (
+                      <span className="text-sm text-slate-500">Completed</span>
+                    )}
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr><td className="border p-4 text-center" colSpan="8">{emptyMessage}</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
   return (
     <div>
       <Navbar />
@@ -436,8 +546,9 @@ function AdminDashboard() {
           <h1 className="mb-3 text-3xl font-bold">Admin Dashboard</h1>
           {message && <div className="mb-6 rounded bg-blue-100 px-4 py-3 text-blue-900">{message}</div>}
           <div className="mb-6 rounded bg-green-500 p-4 text-white">Total Sales: Rs. {totalSales}</div>
-          <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-4">
+          <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-5">
             <div className="rounded bg-blue-500 p-4 text-white">Total Orders: {orders.length}</div>
+            <div className="rounded bg-cyan-500 p-4 text-white">Total Customers: {customers.length}</div>
             <div className="rounded bg-yellow-500 p-4 text-white">Pending: {pending}</div>
             <div className="rounded bg-green-500 p-4 text-white">Accepted: {accepted}</div>
             <div className="rounded bg-red-500 p-4 text-white">Rejected: {rejected}</div>
@@ -500,91 +611,7 @@ function AdminDashboard() {
 
           <div className="min-w-0 flex-1">
             {activeSection === "orders" && (
-              <div className="rounded-2xl bg-white p-6 shadow-sm">
-                <h2 className="mb-4 text-2xl font-bold">Customer Orders</h2>
-                <div className="overflow-x-auto">
-                  <table className="mb-2 w-full border bg-white">
-                    <thead>
-                      <tr className="bg-gray-200">
-                        <th className="border p-2">Customer</th>
-                        <th className="border p-2">Product</th>
-                        <th className="border p-2">Quantity</th>
-                        <th className="border p-2">Total Price</th>
-                        <th className="border p-2">Status</th>
-                        <th className="border p-2">Chat</th>
-                        <th className="border p-2">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {orders.length > 0 ? (
-                        orders.map((order) => (
-                          <tr key={order.id}>
-                            <td className="border p-2 align-top">{order.User?.name || "Customer"}</td>
-                            <td className="border p-2 align-top">
-                              {order.order_type === "custom" ? (
-                                `Custom Box (${order.box_length} x ${order.box_width} x ${order.box_height})`
-                              ) : (
-                                <div className="space-y-1">
-                                  {getOrderItems(order).map((item, index) => (
-                                    <p key={`${order.id}-${item.product_id || index}`}>
-                                      {item.product_name} x {item.quantity}
-                                    </p>
-                                  ))}
-                                </div>
-                              )}
-                            </td>
-                            <td className="border p-2 align-top">{order.quantity}</td>
-                            <td className="border p-2 align-top">Rs. {order.total_price}</td>
-                            <td className="border p-2 align-top">{order.status}</td>
-                            <td className="border p-2 align-top">
-                              {order.customer_reply && (
-                                <p className="mb-2 text-sm text-blue-700">Customer reply: {order.customer_reply}</p>
-                              )}
-                              {order.design_file_data && (
-                                <div className="mt-2 text-sm">
-                                  <button
-                                    type="button"
-                                    className="mr-3 text-blue-700 underline"
-                                    onClick={() =>
-                                      viewPdf(order.design_file_data, order.design_file_name)
-                                    }
-                                  >
-                                    View PDF
-                                  </button>
-                                  <a
-                                    className="text-blue-700 underline"
-                                    href={order.design_file_data}
-                                    download={order.design_file_name || "design.pdf"}
-                                  >
-                                    Download PDF
-                                  </a>
-                                </div>
-                              )}
-                              {renderChatPanel(order.id)}
-                              {order.Invoice && (
-                                <div className="mt-3 rounded bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                                  Invoice: {order.Invoice.invoice_number}
-                                  {order.Invoice.is_shared_with_customer ? " (Shared)" : " (Not Shared)"}
-                                </div>
-                              )}
-                            </td>
-                            <td className="border p-2 align-top">
-                              <button className="mb-2 mr-2 rounded bg-indigo-600 px-3 py-1 text-white hover:bg-indigo-700" onClick={() => fetchOrderChat(order.id)}>Chat</button>
-                              <button className="mb-2 mr-2 rounded bg-green-600 px-3 py-1 text-white disabled:opacity-60" onClick={() => updateStatus(order.id, "Accepted")} disabled={loadingOrderActionId === order.id || order.status === "Accepted" || order.status === "Completed"}>Accept</button>
-                              <button className="mb-2 mr-2 rounded bg-emerald-700 px-3 py-1 text-white disabled:opacity-60" onClick={() => updateStatus(order.id, "Completed")} disabled={loadingOrderActionId === order.id || order.status !== "Accepted"}>Complete Order</button>
-                              <button className="mb-2 mr-2 rounded bg-amber-500 px-3 py-1 text-white disabled:opacity-60" onClick={() => generateInvoice(order.id)} disabled={loadingOrderActionId === order.id || order.status !== "Completed" || Boolean(order.Invoice)}>Make Invoice</button>
-                              <button className="mb-2 mr-2 rounded bg-sky-600 px-3 py-1 text-white disabled:opacity-60" onClick={() => shareInvoice(order.Invoice.id)} disabled={loadingOrderActionId === order.Invoice?.id || !order.Invoice || Boolean(order.Invoice.is_shared_with_customer)}>Share To Customer</button>
-                              <button className="rounded bg-red-600 px-3 py-1 text-white disabled:opacity-60" onClick={() => updateStatus(order.id, "Rejected")} disabled={loadingOrderActionId === order.id || order.status === "Rejected" || order.status === "Completed"}>Reject</button>
-                            </td>
-                          </tr>
-                        ))
-                      ) : (
-                        <tr><td className="border p-4 text-center" colSpan="7">No customer orders found.</td></tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+              renderOrdersTable(orders, "Customer Orders", "No customer orders found.")
             )}
 
             {activeSection === "customers" && (
@@ -676,6 +703,17 @@ function AdminDashboard() {
               <div className="rounded-2xl bg-white p-6 shadow-sm">
                 <h2 className="mb-4 text-2xl font-bold">Product Management</h2>
                 <div className="mb-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                  <select
+                    className="rounded border p-2"
+                    value={productForm.box_type}
+                    onChange={(e) => setProductForm({ ...productForm, box_type: e.target.value })}
+                  >
+                    {boxTypeOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
                   <input className="rounded border p-2" placeholder="Product Name" value={productForm.name} onChange={(e) => setProductForm({ ...productForm, name: e.target.value })} />
                   <input className="rounded border p-2" placeholder="Description" value={productForm.description} onChange={(e) => setProductForm({ ...productForm, description: e.target.value })} />
                   <input className="rounded border p-2" type="file" accept="image/*" onChange={handleProductImageChange} />
@@ -703,6 +741,7 @@ function AdminDashboard() {
                     <thead>
                       <tr className="bg-gray-200">
                         <th className="border p-2">Photo</th>
+                        <th className="border p-2">Box Type</th>
                         <th className="border p-2">Name</th>
                         <th className="border p-2">Description</th>
                         <th className="border p-2">Price</th>
@@ -724,6 +763,9 @@ function AdminDashboard() {
                               "-"
                             )}
                           </td>
+                          <td className="border p-2">
+                            {boxTypeOptions.find((option) => option.value === product.box_type)?.label || "-"}
+                          </td>
                           <td className="border p-2">{product.name}</td>
                           <td className="border p-2">{product.description || "-"}</td>
                           <td className="border p-2">Rs. {product.price}</td>
@@ -733,7 +775,7 @@ function AdminDashboard() {
                             <button className="rounded bg-red-600 px-3 py-1 text-white" onClick={() => deleteProduct(product.id)}>Delete</button>
                           </td>
                         </tr>
-                      )) : <tr><td className="border p-4 text-center" colSpan="6">No products found.</td></tr>}
+                      )) : <tr><td className="border p-4 text-center" colSpan="7">No products found.</td></tr>}
                     </tbody>
                   </table>
                 </div>

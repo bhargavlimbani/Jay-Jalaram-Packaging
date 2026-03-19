@@ -17,7 +17,19 @@ function CustomerDashboard() {
   const [placingCartOrder, setPlacingCartOrder] = useState(false);
   const [message, setMessage] = useState("");
 
+  const formatOrderDateTime = (value) => {
+    if (!value) {
+      return "-";
+    }
+
+    return new Intl.DateTimeFormat("en-IN", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    }).format(new Date(value));
+  };
+
   const getOrderItems = (order) => {
+    
     if (Array.isArray(order.items) && order.items.length > 0) {
       return order.items;
     }
@@ -427,6 +439,7 @@ function CustomerDashboard() {
           <thead>
             <tr className="bg-gray-200">
               <th className="border p-2">Order ID</th>
+              <th className="border p-2">Date & Time</th>
               <th className="border p-2">Product</th>
               <th className="border p-2">Quantity</th>
               <th className="border p-2">Total Price</th>
@@ -440,6 +453,7 @@ function CustomerDashboard() {
               orders.map((order) => (
                 <tr key={order.id}>
                   <td className="border p-2 align-top">{order.id}</td>
+                  <td className="border p-2 align-top">{formatOrderDateTime(order.createdAt)}</td>
                   <td className="border p-2 align-top">
                     {order.order_type === "custom" ? (
                       `Custom Box (${order.box_length} x ${order.box_width} x ${order.box_height})`
@@ -482,7 +496,7 @@ function CustomerDashboard() {
               ))
             ) : (
               <tr>
-                <td className="border p-4 text-center" colSpan="7">No orders found yet.</td>
+                <td className="border p-4 text-center" colSpan="8">No orders found yet.</td>
               </tr>
             )}
           </tbody>

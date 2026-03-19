@@ -3,6 +3,9 @@ const Product = require("../models/Product");
 const User = require("../models/User");
 const Invoice = require("../models/Invoice");
 const { createInvoiceForOrder } = require("./invoiceController");
+const sendOrderStatusEmail = require("../utils/sendOrderStatusEmail");
+
+const INTERNATIONAL_PHONE_PATTERN = /^\+[0-9]{8,16}$/;
 
 const parseOrderItems = (order) => {
   try {
@@ -11,6 +14,22 @@ const parseOrderItems = (order) => {
   } catch (error) {
     return [];
   }
+};
+
+const buildOrderItemsSummary = (order) => {
+  if (order.order_type === "custom") {
+    return `Custom Box (${order.box_length} x ${order.box_width} x ${order.box_height}), Quantity: ${order.quantity}`;
+  }
+
+  const orderItems = parseOrderItems(order);
+
+  if (orderItems.length > 0) {
+    return orderItems
+      .map((item) => `${item.product_name || "Product"} x ${item.quantity}`)
+      .join(", ");
+  }
+
+  return `${order.Product?.name || "Product"} x ${order.quantity}`;
 };
 
 const serializeOrder = (order) => {
@@ -60,12 +79,46 @@ exports.placeOrder = async (req, res) => {
     } = req.body;
 
     if (order_type === "custom") {
+      const trimmedCustomerName = String(customer_name || "").trim();
+      const trimmedCustomerPhone = String(customer_phone || "").trim();
+      const parsedLength = Number(box_length);
+      const parsedWidth = Number(box_width);
+      const parsedHeight = Number(box_height);
       const parsedQuantity = Number(quantity);
       const parsedTotalPrice = Number(custom_total_price || 0);
+      const phoneDigits = trimmedCustomerPhone.replace(/\D/g, "");
+      const isIndiaNumber = trimmedCustomerPhone.startsWith("+91");
+      const nationalPhoneDigits = isIndiaNumber ? phoneDigits.slice(2) : phoneDigits;
 
-      if (!customer_name || !customer_phone || !box_length || !box_width || !box_height || !quantity) {
+      if (!trimmedCustomerName || !trimmedCustomerPhone || !box_length || !box_width || !box_height || !quantity) {
         return res.status(400).json({
           message: "Please fill all custom box details",
+        });
+      }
+
+      if (
+        !INTERNATIONAL_PHONE_PATTERN.test(trimmedCustomerPhone) ||
+        phoneDigits.length < 7 ||
+        phoneDigits.length > 15
+      ) {
+        return res.status(400).json({
+          message: "Please enter a valid mobile number with country code if needed",
+        });
+      }
+
+      if (isIndiaNumber && nationalPhoneDigits.length !== 10) {
+        return res.status(400).json({
+          message: "For India, mobile number must be exactly 10 digits after +91",
+        });
+      }
+
+      if (
+        [parsedLength, parsedWidth, parsedHeight].some(
+          (value) => Number.isNaN(value) || value <= 0
+        )
+      ) {
+        return res.status(400).json({
+          message: "Box length, width, and height must be valid numbers greater than 0",
         });
       }
 
@@ -78,11 +131,11 @@ exports.placeOrder = async (req, res) => {
         quantity: parsedQuantity,
         total_price: parsedTotalPrice,
         order_type: "custom",
-        customer_name,
-        customer_phone,
-        box_length,
-        box_width,
-        box_height,
+        customer_name: trimmedCustomerName,
+        customer_phone: trimmedCustomerPhone,
+        box_length: parsedLength,
+        box_width: parsedWidth,
+        box_height: parsedHeight,
         custom_design,
         design_file_name,
         design_file_data,
@@ -360,12 +413,14 @@ exports.updateOrderStatus = async (req, res) => {
     const { status, admin_comment } = req.body;
 
     const order = await Order.findByPk(id, {
-      include: Product,
+      include: [Product, User],
     });
 
     if (!order) {
       return res.status(404).json({ message: "Order not found" });
     }
+
+    const previousStatus = order.status;
 
     if (status === "Accepted" && order.status !== "Accepted" && order.order_type === "product") {
       const orderItems = parseOrderItems(order);
@@ -417,8 +472,31 @@ exports.updateOrderStatus = async (req, res) => {
     }
     await order.save();
 
+    let message = "Order status updated successfully";
+
+    if (
+      ["Accepted", "Rejected"].includes(status) &&
+      previousStatus !== status &&
+      order.User?.email
+    ) {
+      try {
+        await sendOrderStatusEmail({
+          to: order.User.email,
+          name: order.User.name,
+          status,
+          orderId: order.id,
+          orderedAt: order.createdAt,
+          itemsSummary: buildOrderItemsSummary(order),
+          adminComment: order.admin_comment,
+        });
+        message = `Order ${status.toLowerCase()} successfully and email sent to customer.`;
+      } catch (emailError) {
+        message = `Order ${status.toLowerCase()} successfully, but customer email could not be sent.`;
+      }
+    }
+
     res.json({
-      message: "Order status updated successfully",
+      message,
       order: serializeOrder(order),
     });
 
