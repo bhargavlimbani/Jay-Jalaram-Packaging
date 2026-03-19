@@ -21,7 +21,37 @@ app.get("/", (req, res) => {
   res.send("Jai Jalaram Packaging API Running 🚀");
 });
 
-sequelize.sync({ alter: true }).then(async () => {
+const shouldAlter = process.env.DB_SYNC_ALTER === "true";
+const syncOptions = shouldAlter ? { alter: true } : undefined;
+
+const syncDatabase = async () => {
+  try {
+    await sequelize.sync(syncOptions);
+  } catch (error) {
+    if (shouldAlter) {
+      console.log("Alter sync failed, retrying without alter:", error.message);
+      await sequelize.sync();
+    } else {
+      throw error;
+    }
+  }
+};
+
+syncDatabase().then(async () => {
+  try {
+    const [columns] = await sequelize.query(
+      "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'jai_jalaram' AND TABLE_NAME = 'Products' AND COLUMN_NAME = 'box_type'"
+    );
+
+    if (!Array.isArray(columns) || columns.length === 0) {
+      await sequelize.query(
+        "ALTER TABLE `Products` ADD COLUMN `box_type` ENUM('carton-box','corrugated-box','printed-corrugated-box','duplex-box') NOT NULL DEFAULT 'corrugated-box'"
+      );
+    }
+  } catch (error) {
+    console.log("Unable to ensure Products.box_type column:", error.message);
+  }
+
   await Product.findOrCreate({
     where: { name: "Custom Size Box" },
     defaults: {

@@ -63,7 +63,7 @@ function AdminDashboard() {
   });
   const [editingProductId, setEditingProductId] = useState(null);
   const [message, setMessage] = useState("");
-  const [activeSection, setActiveSection] = useState("orders");
+  const [activeSection, setActiveSection] = useState("customers");
   const [loadingOrderActionId, setLoadingOrderActionId] = useState(null);
 
   const formatOrderDateTime = (value) => {
@@ -370,7 +370,7 @@ function AdminDashboard() {
 
   const totalSales = Array.isArray(orders)
     ? orders
-        .filter((order) => order.status === "Accepted")
+        .filter((order) => order.status === "Completed")
         .reduce((sum, order) => sum + Number(order.total_price || 0), 0)
     : 0;
 
@@ -546,8 +546,9 @@ function AdminDashboard() {
           <h1 className="mb-3 text-3xl font-bold">Admin Dashboard</h1>
           {message && <div className="mb-6 rounded bg-blue-100 px-4 py-3 text-blue-900">{message}</div>}
           <div className="mb-6 rounded bg-green-500 p-4 text-white">Total Sales: Rs. {totalSales}</div>
-          <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-4">
+          <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-5">
             <div className="rounded bg-blue-500 p-4 text-white">Total Orders: {orders.length}</div>
+            <div className="rounded bg-cyan-500 p-4 text-white">Total Customers: {customers.length}</div>
             <div className="rounded bg-yellow-500 p-4 text-white">Pending: {pending}</div>
             <div className="rounded bg-green-500 p-4 text-white">Accepted: {accepted}</div>
             <div className="rounded bg-red-500 p-4 text-white">Rejected: {rejected}</div>
