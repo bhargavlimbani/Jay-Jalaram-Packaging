@@ -49,6 +49,7 @@ function AdminDashboard() {
   const [orders, setOrders] = useState([]);
   const [products, setProducts] = useState([]);
   const [customers, setCustomers] = useState([]);
+  const [materials, setMaterials] = useState([]);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [chatMessages, setChatMessages] = useState({});
   const [chatInputs, setChatInputs] = useState({});
@@ -62,6 +63,13 @@ function AdminDashboard() {
     stock: "",
   });
   const [editingProductId, setEditingProductId] = useState(null);
+  const [materialForm, setMaterialForm] = useState({
+    name: "",
+    unit: "kg",
+    quantity: "",
+    unit_price: "",
+  });
+  const [editingMaterialId, setEditingMaterialId] = useState(null);
   const [message, setMessage] = useState("");
   const [activeSection, setActiveSection] = useState("customers");
   const [loadingOrderActionId, setLoadingOrderActionId] = useState(null);
@@ -99,6 +107,7 @@ function AdminDashboard() {
     fetchOrders();
     fetchProducts();
     fetchCustomers();
+    fetchMaterials();
   }, []);
 
   const fetchOrders = async () => {
@@ -135,6 +144,16 @@ function AdminDashboard() {
     } catch (error) {
       console.log(error);
       setCustomers([]);
+    }
+  };
+
+  const fetchMaterials = async () => {
+    try {
+      const res = await api.get("/materials");
+      setMaterials(Array.isArray(res.data) ? res.data : []);
+    } catch (error) {
+      console.log(error);
+      setMaterials([]);
     }
   };
 
@@ -259,6 +278,16 @@ function AdminDashboard() {
     setEditingProductId(null);
   };
 
+  const resetMaterialForm = () => {
+    setMaterialForm({
+      name: "",
+      unit: "kg",
+      quantity: "",
+      unit_price: "",
+    });
+    setEditingMaterialId(null);
+  };
+
   const handleProductImageChange = (event) => {
     const file = event.target.files?.[0];
 
@@ -353,6 +382,57 @@ function AdminDashboard() {
     }
   };
 
+  const saveMaterial = async () => {
+    try {
+      const payload = {
+        name: materialForm.name.trim(),
+        unit: materialForm.unit.trim() || "kg",
+        quantity: materialForm.quantity,
+        unit_price: materialForm.unit_price,
+      };
+
+      if (!payload.name) {
+        setMessage("Please enter a material name.");
+        return;
+      }
+
+      if (editingMaterialId) {
+        await api.put(`/materials/${editingMaterialId}`, payload);
+        setMessage("Material updated successfully.");
+      } else {
+        await api.post("/materials", payload);
+        setMessage("Material added successfully.");
+      }
+
+      resetMaterialForm();
+      fetchMaterials();
+    } catch (error) {
+      console.log(error);
+      setMessage(error.response?.data?.message || "Unable to save material.");
+    }
+  };
+
+  const startEditMaterial = (material) => {
+    setEditingMaterialId(material.id);
+    setMaterialForm({
+      name: material.name || "",
+      unit: material.unit || "kg",
+      quantity: material.quantity ?? "",
+      unit_price: material.unit_price ?? "",
+    });
+  };
+
+  const deleteMaterial = async (id) => {
+    try {
+      await api.delete(`/materials/${id}`);
+      setMessage("Material deleted successfully.");
+      fetchMaterials();
+    } catch (error) {
+      console.log(error);
+      setMessage(error.response?.data?.message || "Unable to delete material.");
+    }
+  };
+
   const pending = orders.filter((order) => order.status === "Pending").length;
   const accepted = orders.filter((order) => order.status === "Accepted").length;
   const rejected = orders.filter((order) => order.status === "Rejected").length;
@@ -372,6 +452,14 @@ function AdminDashboard() {
     ? orders
         .filter((order) => order.status === "Completed")
         .reduce((sum, order) => sum + Number(order.total_price || 0), 0)
+    : 0;
+
+  const totalMaterialValue = Array.isArray(materials)
+    ? materials.reduce(
+        (sum, material) =>
+          sum + Number(material.quantity || 0) * Number(material.unit_price || 0),
+        0
+      )
     : 0;
 
   const viewPdf = (fileData, fileName) => {
@@ -546,12 +634,15 @@ function AdminDashboard() {
           <h1 className="mb-3 text-3xl font-bold">Admin Dashboard</h1>
           {message && <div className="mb-6 rounded bg-blue-100 px-4 py-3 text-blue-900">{message}</div>}
           <div className="mb-6 rounded bg-green-500 p-4 text-white">Total Sales: Rs. {totalSales}</div>
-          <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-5">
+          <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-6">
             <div className="rounded bg-blue-500 p-4 text-white">Total Orders: {orders.length}</div>
             <div className="rounded bg-cyan-500 p-4 text-white">Total Customers: {customers.length}</div>
             <div className="rounded bg-yellow-500 p-4 text-white">Pending: {pending}</div>
             <div className="rounded bg-green-500 p-4 text-white">Accepted: {accepted}</div>
             <div className="rounded bg-red-500 p-4 text-white">Rejected: {rejected}</div>
+            <div className="rounded bg-indigo-500 p-4 text-white">
+              Material Value: Rs. {Number(totalMaterialValue.toFixed(2))}
+            </div>
           </div>
           <div className="w-full max-w-xl">
             <Bar data={chartData} />
@@ -591,6 +682,15 @@ function AdminDashboard() {
                   onClick={() => setActiveSection("products")}
                 >
                   Product Management
+                </button>
+                <button
+                  type="button"
+                  className={`w-full rounded-lg px-4 py-3 text-left transition ${
+                    activeSection === "materials" ? "bg-white text-slate-900" : "bg-slate-800 hover:bg-slate-700"
+                  }`}
+                  onClick={() => setActiveSection("materials")}
+                >
+                  Material Stock
                 </button>
                 <Link
                   to="/invoices"
@@ -776,6 +876,103 @@ function AdminDashboard() {
                           </td>
                         </tr>
                       )) : <tr><td className="border p-4 text-center" colSpan="7">No products found.</td></tr>}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {activeSection === "materials" && (
+              <div className="rounded-2xl bg-white p-6 shadow-sm">
+                <h2 className="mb-4 text-2xl font-bold">Material Stock</h2>
+                <div className="mb-4 grid gap-3 md:grid-cols-4">
+                  <input
+                    className="rounded border p-2"
+                    placeholder="Material Name"
+                    value={materialForm.name}
+                    onChange={(e) => setMaterialForm({ ...materialForm, name: e.target.value })}
+                  />
+                  <input
+                    className="rounded border p-2"
+                    placeholder="Unit (kg)"
+                    value={materialForm.unit}
+                    onChange={(e) => setMaterialForm({ ...materialForm, unit: e.target.value })}
+                  />
+                  <input
+                    className="rounded border p-2"
+                    placeholder="Quantity"
+                    value={materialForm.quantity}
+                    onChange={(e) => setMaterialForm({ ...materialForm, quantity: e.target.value })}
+                  />
+                  <input
+                    className="rounded border p-2"
+                    placeholder="Price per Unit"
+                    value={materialForm.unit_price}
+                    onChange={(e) => setMaterialForm({ ...materialForm, unit_price: e.target.value })}
+                  />
+                </div>
+                <div className="mb-6">
+                  <button
+                    className="mr-2 rounded bg-green-600 px-4 py-2 text-white"
+                    onClick={saveMaterial}
+                  >
+                    {editingMaterialId ? "Update Material" : "Add Material"}
+                  </button>
+                  <button
+                    className="rounded bg-gray-500 px-4 py-2 text-white"
+                    onClick={resetMaterialForm}
+                  >
+                    Clear
+                  </button>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full border bg-white">
+                    <thead>
+                      <tr className="bg-gray-200">
+                        <th className="border p-2">Material</th>
+                        <th className="border p-2">Unit</th>
+                        <th className="border p-2">Quantity</th>
+                        <th className="border p-2">Price / Unit</th>
+                        <th className="border p-2">Total Value</th>
+                        <th className="border p-2">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {materials.length > 0 ? (
+                        materials.map((material) => (
+                          <tr key={material.id}>
+                            <td className="border p-2">{material.name}</td>
+                            <td className="border p-2">{material.unit}</td>
+                            <td className="border p-2">{material.quantity}</td>
+                            <td className="border p-2">Rs. {material.unit_price}</td>
+                            <td className="border p-2">
+                              Rs. {Number(
+                                (Number(material.quantity || 0) * Number(material.unit_price || 0)).toFixed(2)
+                              )}
+                            </td>
+                            <td className="border p-2">
+                              <button
+                                className="mr-2 rounded bg-blue-600 px-3 py-1 text-white"
+                                onClick={() => startEditMaterial(material)}
+                              >
+                                Edit
+                              </button>
+                              <button
+                                className="rounded bg-red-600 px-3 py-1 text-white"
+                                onClick={() => deleteMaterial(material.id)}
+                              >
+                                Delete
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td className="border p-4 text-center" colSpan="6">
+                            No materials found.
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
