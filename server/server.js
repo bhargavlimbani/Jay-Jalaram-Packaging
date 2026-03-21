@@ -5,7 +5,9 @@ require("./models/Product");
 require("./models/Order");
 require("./models/Invoice");
 require("./models/PendingRegistration");
+require("./models/Material");
 const Product = require("./models/Product");
+const Material = require("./models/Material");
 
 
 const sequelize = require("./config/db");
@@ -71,6 +73,21 @@ syncDatabase().then(async () => {
       stock: 100,
     },
   });
+
+  await Material.findOrCreate({
+    where: { name: "Kraft Paper" },
+    defaults: { unit: "kg", quantity: 0, unit_price: 0 },
+  });
+
+  await Material.findOrCreate({
+    where: { name: "Duplex Board" },
+    defaults: { unit: "kg", quantity: 0, unit_price: 0 },
+  });
+
+  await Material.findOrCreate({
+    where: { name: "Gum" },
+    defaults: { unit: "kg", quantity: 0, unit_price: 0 },
+  });
 });
 
 const PORT = process.env.PORT || 5000;
@@ -85,6 +102,8 @@ app.use("/api/invoices", invoiceRoutes);
 
 const orderRoutes = require("./routes/orderRoutes");
 app.use("/api/orders", orderRoutes);
+const materialRoutes = require("./routes/materialRoutes");
+app.use("/api/materials", materialRoutes);
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
