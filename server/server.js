@@ -26,12 +26,27 @@ app.get("/", (req, res) => {
 });
 
 const shouldAlter = process.env.DB_SYNC_ALTER === "true";
+const allowAutoRepair = process.env.DB_AUTO_REPAIR === "true";
 const syncOptions = shouldAlter ? { alter: true } : undefined;
 const dbName = process.env.DB_NAME || "jai_jalaram";
 
 const extractTableFromSql = (sql) => {
   if (!sql) return null;
   const match = sql.match(/SHOW INDEX FROM `([^`]+)`/i);
+  return match ? match[1] : null;
+};
+
+const extractCreateTableFromSql = (sql) => {
+  if (!sql) return null;
+  const match =
+    sql.match(/CREATE TABLE IF NOT EXISTS `([^`]+)`/i) ||
+    sql.match(/CREATE TABLE `([^`]+)`/i);
+  return match ? match[1] : null;
+};
+
+const extractTableFromTablespaceMessage = (message) => {
+  if (!message) return null;
+  const match = message.match(/`[^`]+`\.`([^`]+)`/i);
   return match ? match[1] : null;
 };
 
@@ -57,17 +72,37 @@ const syncDatabase = async () => {
       const errno = error?.parent?.errno || error?.original?.errno;
       const sqlState = error?.parent?.sqlState || error?.original?.sqlState;
       const sql = error?.parent?.sql || error?.original?.sql || "";
+      const sqlMessage =
+        error?.parent?.sqlMessage || error?.original?.sqlMessage || "";
       const tableFromSql = extractTableFromSql(sql);
+      const tableFromCreateSql = extractCreateTableFromSql(sql);
+      const tableFromTablespace = extractTableFromTablespaceMessage(sqlMessage);
       const isEngineMissing =
         errno === 1932 || (sqlState === "42S02" && tableFromSql);
+      const isTablespaceExists = errno === 1813;
 
       if (isEngineMissing && tableFromSql) {
+        if (!allowAutoRepair) {
+          throw new Error(
+            `Database table "${tableFromSql}" is corrupted/missing in engine. Auto-repair is disabled to protect data. Set DB_AUTO_REPAIR=true if you want to drop & recreate tables.`
+          );
+        }
         console.log(
           `${tableFromSql} table metadata is corrupted/missing in engine. Recreating ${tableFromSql} table...`
         );
         await queryInterface.dropTable(tableFromSql);
         attempt += 1;
         continue;
+      }
+
+      if (isTablespaceExists) {
+        const tableName =
+          tableFromCreateSql || tableFromTablespace || "unknown table";
+        throw new Error(
+          `InnoDB tablespace already exists for "${tableName}". This usually means an orphaned .ibd file. ` +
+            `Run: RESET_DB=true RESET_DB_DROP_DATABASE=true node scripts/resetDatabase.js (destructive) ` +
+            `or delete the orphaned tablespace file in the MySQL data directory, then retry.`
+        );
       }
       throw error;
     }
