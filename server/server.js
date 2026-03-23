@@ -6,6 +6,8 @@ require("./models/Order");
 require("./models/Invoice");
 require("./models/PendingRegistration");
 require("./models/Material");
+require("./models/User");
+require("./models/Payment");
 const Product = require("./models/Product");
 const Material = require("./models/Material");
 
@@ -27,31 +29,50 @@ const shouldAlter = process.env.DB_SYNC_ALTER === "true";
 const syncOptions = shouldAlter ? { alter: true } : undefined;
 const dbName = process.env.DB_NAME || "jai_jalaram";
 
-const syncDatabase = async () => {
-  try {
-    await sequelize.sync(syncOptions);
-  } catch (error) {
-    const errno = error?.parent?.errno || error?.original?.errno;
-    const sqlState = error?.parent?.sqlState || error?.original?.sqlState;
-    const sql = error?.parent?.sql || error?.original?.sql || "";
-    const isProductsEngineMissing =
-      errno === 1932 ||
-      (sqlState === "42S02" && sql.includes("SHOW INDEX FROM `Products`"));
+const extractTableFromSql = (sql) => {
+  if (!sql) return null;
+  const match = sql.match(/SHOW INDEX FROM `([^`]+)`/i);
+  return match ? match[1] : null;
+};
 
-    if (shouldAlter) {
+const syncDatabase = async () => {
+  if (shouldAlter) {
+    try {
+      await sequelize.sync(syncOptions);
+      return;
+    } catch (error) {
       console.log("Alter sync failed, retrying without alter:", error.message);
+    }
+  }
+
+  const queryInterface = sequelize.getQueryInterface();
+  const maxAttempts = 6;
+  let attempt = 0;
+
+  while (attempt < maxAttempts) {
+    try {
       await sequelize.sync();
-    } else if (isProductsEngineMissing) {
-      console.log(
-        "Products table metadata is corrupted/missing in engine. Recreating Products table..."
-      );
-      const queryInterface = sequelize.getQueryInterface();
-      await queryInterface.dropTable("Products");
-      await sequelize.sync();
-    } else {
+      return;
+    } catch (error) {
+      const errno = error?.parent?.errno || error?.original?.errno;
+      const sqlState = error?.parent?.sqlState || error?.original?.sqlState;
+      const sql = error?.parent?.sql || error?.original?.sql || "";
+      const tableFromSql = extractTableFromSql(sql);
+      const isEngineMissing =
+        errno === 1932 || (sqlState === "42S02" && tableFromSql);
+
+      if (isEngineMissing && tableFromSql) {
+        console.log(
+          `${tableFromSql} table metadata is corrupted/missing in engine. Recreating ${tableFromSql} table...`
+        );
+        await queryInterface.dropTable(tableFromSql);
+        attempt += 1;
+        continue;
+      }
       throw error;
     }
   }
+  throw new Error("Database sync failed after repairing tables.");
 };
 
 syncDatabase().then(async () => {

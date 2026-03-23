@@ -4,6 +4,7 @@ const User = require("../models/User");
 const Invoice = require("../models/Invoice");
 const { createInvoiceForOrder } = require("./invoiceController");
 const sendOrderStatusEmail = require("../utils/sendOrderStatusEmail");
+const sendOrderCompletedEmail = require("../utils/sendOrderCompletedEmail");
 
 const INTERNATIONAL_PHONE_PATTERN = /^\+[0-9]{8,16}$/;
 
@@ -492,6 +493,21 @@ exports.updateOrderStatus = async (req, res) => {
         message = `Order ${status.toLowerCase()} successfully and email sent to customer.`;
       } catch (emailError) {
         message = `Order ${status.toLowerCase()} successfully, but customer email could not be sent.`;
+      }
+    }
+
+    if (status === "Completed" && previousStatus !== status && order.User?.email) {
+      try {
+        await sendOrderCompletedEmail({
+          to: order.User.email,
+          name: order.User.name,
+          orderId: order.id,
+          orderedAt: order.createdAt,
+          itemsSummary: buildOrderItemsSummary(order),
+        });
+        message = "Order marked completed and email sent to customer.";
+      } catch (emailError) {
+        message = "Order marked completed, but customer email could not be sent.";
       }
     }
 
