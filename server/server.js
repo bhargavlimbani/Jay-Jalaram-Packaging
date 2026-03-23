@@ -25,13 +25,28 @@ app.get("/", (req, res) => {
 
 const shouldAlter = process.env.DB_SYNC_ALTER === "true";
 const syncOptions = shouldAlter ? { alter: true } : undefined;
+const dbName = process.env.DB_NAME || "jai_jalaram";
 
 const syncDatabase = async () => {
   try {
     await sequelize.sync(syncOptions);
   } catch (error) {
+    const errno = error?.parent?.errno || error?.original?.errno;
+    const sqlState = error?.parent?.sqlState || error?.original?.sqlState;
+    const sql = error?.parent?.sql || error?.original?.sql || "";
+    const isProductsEngineMissing =
+      errno === 1932 ||
+      (sqlState === "42S02" && sql.includes("SHOW INDEX FROM `Products`"));
+
     if (shouldAlter) {
       console.log("Alter sync failed, retrying without alter:", error.message);
+      await sequelize.sync();
+    } else if (isProductsEngineMissing) {
+      console.log(
+        "Products table metadata is corrupted/missing in engine. Recreating Products table..."
+      );
+      const queryInterface = sequelize.getQueryInterface();
+      await queryInterface.dropTable("Products");
       await sequelize.sync();
     } else {
       throw error;
@@ -42,7 +57,8 @@ const syncDatabase = async () => {
 syncDatabase().then(async () => {
   try {
     const [columns] = await sequelize.query(
-      "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'jai_jalaram' AND TABLE_NAME = 'Products' AND COLUMN_NAME = 'box_type'"
+      "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'Products' AND COLUMN_NAME = 'box_type'",
+      { replacements: [dbName] }
     );
 
     if (!Array.isArray(columns) || columns.length === 0) {
