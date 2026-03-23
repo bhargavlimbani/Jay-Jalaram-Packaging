@@ -5,6 +5,7 @@ const User = require("../models/User");
 const PDFDocument = require("pdfkit");
 const path = require("path");
 const fs = require("fs");
+const sendInvoiceEmail = require("../utils/sendInvoiceEmail");
 
 const COMPANY_INFO = {
   name: "Jai Jalaram Packaging",
@@ -396,12 +397,39 @@ exports.shareInvoiceToCustomer = async (req, res) => {
       return res.status(404).json({ message: "Invoice not found" });
     }
 
+    const customerEmail =
+      invoice.User?.email || invoice.Order?.User?.email || invoice.customer_email;
+    if (!customerEmail) {
+      return res.status(400).json({
+        message: "Customer email is missing. Please update the customer email.",
+      });
+    }
+
     invoice.is_shared_with_customer = true;
     invoice.shared_at = new Date();
     await invoice.save();
 
+    let emailMessage = "Invoice shared with customer successfully";
+    try {
+      const pdfBuffer = await buildInvoicePdfBuffer(invoice);
+      await sendInvoiceEmail({
+        to: customerEmail,
+        customerName: invoice.customer_name || invoice.User?.name,
+        invoiceNumber: invoice.invoice_number,
+        invoiceDate: invoice.invoice_date || invoice.createdAt,
+        totalAmount: invoice.total_amount,
+        pdfBuffer,
+        pdfFileName: `${invoice.invoice_number || "invoice"}.pdf`,
+        items: parseInvoiceItems(invoice),
+      });
+    } catch (error) {
+      console.log("Failed to send invoice email:", error.message);
+      emailMessage =
+        "Invoice shared, but email could not be sent. Please check email settings.";
+    }
+
     res.json({
-      message: "Invoice shared with customer successfully",
+      message: emailMessage,
       invoice: serializeInvoice(invoice),
     });
   } catch (error) {
