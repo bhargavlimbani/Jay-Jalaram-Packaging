@@ -96,7 +96,11 @@ function Products() {
             filteredProducts.map((product) => (
               <div key={product.id} className="brand-panel brand-card-hover overflow-hidden p-4">
                 <img
-                  src={product.image_data || "https://via.placeholder.com/300"}
+                  src={product.image_url
+                    ? product.image_url
+                    : product.image_data
+                    ? product.image_data
+                    : "https://via.placeholder.com/300"}
                   alt={product.name}
                   className="h-64 w-full rounded-[24px] bg-gray-100 object-contain p-4"
                 />
