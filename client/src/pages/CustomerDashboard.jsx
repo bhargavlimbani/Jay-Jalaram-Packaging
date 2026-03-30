@@ -393,7 +393,7 @@ function CustomerDashboard() {
             return (
               <div key={product.id} className="rounded-xl border bg-white p-5 shadow-sm">
                 <img
-                  src={product.image_data || "https://via.placeholder.com/300"}
+                  src={product.image_url || "https://via.placeholder.com/300"}
                   alt={product.name}
                   className="mb-4 h-40 w-full rounded bg-gray-100 object-contain p-2"
                 />
