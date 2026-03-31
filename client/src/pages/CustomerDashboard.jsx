@@ -29,7 +29,7 @@ function CustomerDashboard() {
   };
 
   const getOrderItems = (order) => {
-    
+
     if (Array.isArray(order.items) && order.items.length > 0) {
       return order.items;
     }
@@ -145,10 +145,10 @@ function CustomerDashboard() {
         return prev.map((item) =>
           item.product_id === product.id
             ? {
-                ...item,
-                quantity: nextQuantity,
-                total_price: Number((nextQuantity * Number(product.price)).toFixed(2)),
-              }
+              ...item,
+              quantity: nextQuantity,
+              total_price: Number((nextQuantity * Number(product.price)).toFixed(2)),
+            }
             : item
         );
       }
@@ -191,11 +191,11 @@ function CustomerDashboard() {
       prev.map((item) =>
         item.product_id === productId
           ? {
-              ...item,
-              quantity: nextQuantity,
-              stock: Number(product.stock),
-              total_price: Number((nextQuantity * Number(product.price)).toFixed(2)),
-            }
+            ...item,
+            quantity: nextQuantity,
+            stock: Number(product.stock),
+            total_price: Number((nextQuantity * Number(product.price)).toFixed(2)),
+          }
           : item
       )
     );
@@ -291,7 +291,7 @@ function CustomerDashboard() {
     <div>
       <Navbar />
       <div className="p-10">
-        
+
         <div className="mb-6 rounded border border-blue-200 bg-blue-50 px-4 py-4">
           <h2 className="text-xl font-semibold">Welcome, {user?.name || "Customer"}</h2>
           <p className="mt-1 text-sm text-gray-700">
@@ -393,7 +393,11 @@ function CustomerDashboard() {
             return (
               <div key={product.id} className="rounded-xl border bg-white p-5 shadow-sm">
                 <img
-                  src={product.image_url || "https://via.placeholder.com/300"}
+                  src={product.image_url
+                    ? product.image_url
+                    : product.image_data
+                    ? product.image_data
+                  : "https://via.placeholder.com/300"}
                   alt={product.name}
                   className="mb-4 h-40 w-full rounded bg-gray-100 object-contain p-2"
                 />
