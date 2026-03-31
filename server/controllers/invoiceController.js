@@ -138,68 +138,81 @@ const buildInvoicePdfBuffer = (invoice) =>
     const invoiceDate = new Date(invoice.invoice_date || invoice.createdAt);
     const hasCompanyLogo = fs.existsSync(COMPANY_LOGO_PATH);
 
+    // --- Professional Header ---
+    const headerTop = 40;
+    const logoSize = 60;
+    let rightColX = 340;
+    let leftColX = hasCompanyLogo ? 120 : 50;
     if (hasCompanyLogo) {
-      doc.image(COMPANY_LOGO_PATH, 50, 44, {
-        fit: [90, 90],
+      doc.image(COMPANY_LOGO_PATH, 50, headerTop, {
+        fit: [logoSize, logoSize],
         align: "left",
         valign: "center",
       });
     }
 
+    // Company Name
     doc
-      .fontSize(22)
+      .fontSize(18)
       .fillColor("#1f2937")
-      .text(invoice.company_name || COMPANY_INFO.name, hasCompanyLogo ? 150 : 50, 50);
+      .text(invoice.company_name || COMPANY_INFO.name, leftColX, headerTop, { width: 300, continued: false });
 
+    // Company Address, GST, Phone
+    let companyInfoY = headerTop + 22;
     doc
-      .fontSize(10)
+      .fontSize(9)
       .fillColor("#4b5563")
-      .text(invoice.company_address || COMPANY_INFO.address, hasCompanyLogo ? 150 : 50, 85)
-      .text(`GST No: ${invoice.gst_number || COMPANY_INFO.gstNumber}`, hasCompanyLogo ? 150 : 50, 145)
-      .text(`Phone: ${invoice.company_phones || COMPANY_INFO.phones.join(", ")}`, hasCompanyLogo ? 150 : 50, 160);
+      .text(invoice.company_address || COMPANY_INFO.address, leftColX, companyInfoY, { width: 300 })
+      .text(`GST No: ${invoice.gst_number || COMPANY_INFO.gstNumber}`, leftColX, companyInfoY + 36)
+      .text(`Phone: ${invoice.company_phones || COMPANY_INFO.phones.join(", ")}`, leftColX, companyInfoY + 48);
 
+    // Invoice Info (right aligned)
     doc
-      .fontSize(20)
+      .fontSize(16)
       .fillColor("#111827")
-      .text("INVOICE", 380, 55, { align: "right" })
-      .fontSize(11)
-      .text(`Invoice No: ${invoice.invoice_number}`, 320, 90, { align: "right" })
-      .text(`Order ID: ${invoice.order_id}`, 320, 108, { align: "right" })
-      .text(`Date: ${invoiceDate.toLocaleDateString("en-IN")}`, 320, 126, { align: "right" });
+      .text("INVOICE", rightColX, headerTop, { align: "left", width: 200 })
+      .fontSize(10)
+      .text(`Invoice No: ${invoice.invoice_number}`, rightColX, headerTop + 22, { width: 200 })
+      .text(`Order ID: ${invoice.order_id}`, rightColX, headerTop + 36, { width: 200 })
+      .text(`Date: ${invoiceDate.toLocaleDateString("en-IN")}`, rightColX, headerTop + 50, { width: 200 });
 
+    // Divider
     doc
-      .moveTo(50, 190)
-      .lineTo(545, 190)
+      .moveTo(50, headerTop + 80)
+      .lineTo(545, headerTop + 80)
       .strokeColor("#d1d5db")
       .stroke();
 
+    // --- Bill To Section ---
+    const billToTop = headerTop + 90;
     doc
-      .fontSize(12)
+      .fontSize(11)
       .fillColor("#111827")
-      .text("Bill To", 50, 210)
-      .fontSize(10)
+      .text("Bill To", 50, billToTop)
+      .fontSize(9)
       .fillColor("#4b5563")
-      .text(`Name: ${invoice.customer_name}`, 50, 232)
-      .text(`Phone: ${invoice.customer_phone || "-"}`, 50, 248)
-      .text(`Address: ${invoice.customer_address || "-"}`, 50, 264, { width: 260 });
+      .text(`Name: ${invoice.customer_name}`, 50, billToTop + 18)
+      .text(`Phone: ${invoice.customer_phone || "-"}`, 50, billToTop + 32)
+      .text(`Address: ${invoice.customer_address || "-"}`, 50, billToTop + 46, { width: 220 });
 
     doc
-      .fontSize(10)
+      .fontSize(9)
       .fillColor("#111827")
-      .text("Box Dimensions", 340, 232)
+      .text("Box Dimensions", 320, billToTop + 18)
       .fillColor("#4b5563")
-      .text(invoice.box_dimensions || "-", 340, 248, { width: 180 });
+      .text(invoice.box_dimensions || "-", 320, billToTop + 32, { width: 220 });
 
-    const tableTop = 330;
+    // --- Table Section ---
+    const tableTop = billToTop + 70;
     doc
       .rect(50, tableTop, 495, 24)
       .fill("#ffdb58")
       .fillColor("#111827")
       .fontSize(10)
-      .text("Description", 58, tableTop + 7)
-      .text("Qty", 310, tableTop + 7)
-      .text("Price", 380, tableTop + 7)
-      .text("Total", 460, tableTop + 7);
+      .text("Description", 58, tableTop + 7, { width: 220 })
+      .text("Qty", 310, tableTop + 7, { width: 40, align: "right" })
+      .text("Price", 370, tableTop + 7, { width: 70, align: "right" })
+      .text("Total", 460, tableTop + 7, { width: 70, align: "right" });
 
     let currentY = tableTop + 34;
 
@@ -207,11 +220,10 @@ const buildInvoicePdfBuffer = (invoice) =>
       doc
         .fillColor("#111827")
         .fontSize(10)
-        .text(item.description || "-", 58, currentY, { width: 230 })
-        .text(String(item.quantity || 0), 310, currentY)
-        .text(`Rs. ${Number(item.price || 0).toFixed(2)}`, 380, currentY)
-        .text(`Rs. ${Number(item.total_amount || 0).toFixed(2)}`, 460, currentY);
-
+        .text(item.description || "-", 58, currentY, { width: 220 })
+        .text(String(item.quantity || 0), 310, currentY, { width: 40, align: "right" })
+        .text(`Rs. ${Number(item.price || 0).toFixed(2)}`, 370, currentY, { width: 70, align: "right" })
+        .text(`Rs. ${Number(item.total_amount || 0).toFixed(2)}`, 460, currentY, { width: 70, align: "right" });
       currentY += 24;
     });
 
@@ -221,16 +233,25 @@ const buildInvoicePdfBuffer = (invoice) =>
       .strokeColor("#d1d5db")
       .stroke();
 
+    // --- Bill Rubrik (GST Breakdown) ---
+    const subtotal = items.reduce((sum, item) => sum + Number(item.total_amount || 0), 0);
+    const gstRate = 0.18; // 18% GST
+    const gstAmount = subtotal * gstRate;
+    const grandTotal = subtotal + gstAmount;
+
     doc
       .fontSize(11)
       .fillColor("#111827")
-      .text(`Total Quantity: ${invoice.quantity}`, 50, currentY + 24)
-      .text(`Grand Total: Rs. ${Number(invoice.total_amount || 0).toFixed(2)}`, 340, currentY + 24);
+      .text(`Total Quantity: ${invoice.quantity}`, 50, currentY + 18)
+      .fontSize(10)
+      .text(`Subtotal: Rs. ${subtotal.toFixed(2)}`, 340, currentY + 10, { width: 200, align: "right" })
+      .text(`GST (18%): Rs. ${gstAmount.toFixed(2)}`, 340, currentY + 26, { width: 200, align: "right" })
+      .text(`Grand Total: Rs. ${grandTotal.toFixed(2)}`, 340, currentY + 42, { width: 200, align: "right" });
 
     doc
       .fontSize(10)
       .fillColor("#6b7280")
-      .text("This invoice is auto-generated when the order is accepted by Jai Jalaram Packaging.", 50, currentY + 62, {
+      .text("This invoice is auto-generated when the order is accepted by Jai Jalaram Packaging.", 50, currentY + 70, {
         width: 495,
       });
 
