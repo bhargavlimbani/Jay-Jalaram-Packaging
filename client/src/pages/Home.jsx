@@ -177,7 +177,7 @@ function Home() {
               </button>
             ))}
             <a
-              href="https://maps.app.goo.gl/Kn4HBcCYZhP6kJVR7"
+              href="https://maps.app.goo.gl/6inbbi8fCPFi9qh3A"
               target="_blank"
               rel="noreferrer"
               className="mt-2 inline-block text-[var(--brand-primary)] underline underline-offset-4"
