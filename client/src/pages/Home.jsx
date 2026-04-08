@@ -1,20 +1,62 @@
-import { useContext, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import { AuthContext } from "../context/AuthContext";
 import smallBoxImage from "../assets/small.png";
 import mediumBoxImage from "../assets/Medium.png";
 import largeBoxImage from "../assets/large.png";
+import api from "../services/api";
+import { defaultHome } from "../utils/siteSettingsDefaults";
 
 function Home() {
   const { user } = useContext(AuthContext);
   const [selectedContact, setSelectedContact] = useState(null);
+  const [homeContent, setHomeContent] = useState(defaultHome);
 
-  const contacts = [
-    { name: "Maheshbhai", phone: "9429315940" },
-    { name: "Bhargav", phone: "6355990290" },
-    { name: "Vijaybhai", phone: "9909309111" },
-  ];
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchHomeSettings = async () => {
+      try {
+        const res = await api.get("/site-settings/home");
+        if (isMounted) {
+          setHomeContent({ ...defaultHome, ...(res.data || {}) });
+        }
+      } catch (error) {
+        if (isMounted) {
+          setHomeContent(defaultHome);
+        }
+      }
+    };
+
+    fetchHomeSettings();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const contacts =
+    Array.isArray(homeContent.contacts) && homeContent.contacts.length > 0
+      ? homeContent.contacts
+      : defaultHome.contacts;
+
+  const stats =
+    Array.isArray(homeContent.stats) && homeContent.stats.length > 0
+      ? homeContent.stats
+      : defaultHome.stats;
+
+  const collectionItems =
+    Array.isArray(homeContent.collectionItems) &&
+    homeContent.collectionItems.length > 0
+      ? homeContent.collectionItems
+      : defaultHome.collectionItems;
+
+  const benefitsPoints =
+    Array.isArray(homeContent.benefitsPoints) &&
+    homeContent.benefitsPoints.length > 0
+      ? homeContent.benefitsPoints
+      : defaultHome.benefitsPoints;
 
   return (
     <div className="brand-page">
@@ -24,37 +66,37 @@ function Home() {
         <div className="brand-panel overflow-hidden">
           <div className="grid gap-8 px-6 py-10 md:px-10 lg:grid-cols-[1.15fr_0.85fr] lg:px-14 lg:py-16">
             <div className="flex flex-col justify-center">
-              <p className="brand-kicker">Ocean-Inspired Storefront</p>
+              <p className="brand-kicker">
+                {homeContent.heroKicker || defaultHome.heroKicker}
+              </p>
               <h1 className="brand-title mt-4">
-                Premium Corrugated Packaging With A Bold, Modern Frontend.
+                {homeContent.heroTitle || defaultHome.heroTitle}
               </h1>
               <p className="brand-subtitle mt-5 max-w-2xl">
-                Explore industrial boxes, shipping cartons, printed packaging, and custom-made orders
-                in a storefront styled around your yellow brand identity.
+                {homeContent.heroSubtitle || defaultHome.heroSubtitle}
               </p>
 
               <div className="mt-8 flex flex-wrap gap-4">
                 <Link to="/products" className="brand-button">
-                  Explore Products
+                  {homeContent.primaryCtaLabel || defaultHome.primaryCtaLabel}
                 </Link>
                 <Link to="/order" className="brand-button-dark">
-                  Request Custom Box
+                  {homeContent.secondaryCtaLabel || defaultHome.secondaryCtaLabel}
                 </Link>
               </div>
 
               <div className="mt-8 grid gap-4 sm:grid-cols-3">
-                <div className="rounded-[24px] bg-amber-50 p-4">
-                  <p className="text-3xl font-black">4+</p>
-                  <p className="mt-1 text-sm text-slate-600">Packaging categories</p>
-                </div>
-                <div className="rounded-[24px] bg-white p-4">
-                  <p className="text-3xl font-black">Fast</p>
-                  <p className="mt-1 text-sm text-slate-600">Admin-approved order workflow</p>
-                </div>
-                <div className="rounded-[24px] bg-white p-4">
-                  <p className="text-3xl font-black">Custom</p>
-                  <p className="mt-1 text-sm text-slate-600">Size and design-based manufacturing</p>
-                </div>
+                {stats.map((stat, index) => (
+                  <div
+                    key={`${stat.label}-${index}`}
+                    className={`rounded-[24px] p-4 ${
+                      index === 0 ? "bg-amber-50" : "bg-white"
+                    }`}
+                  >
+                    <p className="text-3xl font-black">{stat.value}</p>
+                    <p className="mt-1 text-sm text-slate-600">{stat.label}</p>
+                  </div>
+                ))}
               </div>
 
               {user?.role === "customer" && (
@@ -73,9 +115,11 @@ function Home() {
                 />
                 <div className="px-2 pb-2 pt-4">
                   <p className="brand-kicker">Featured Range</p>
-                  <h3 className="mt-2 text-2xl font-black">Shipping Ready Boxes</h3>
+                  <h3 className="mt-2 text-2xl font-black">
+                    {homeContent.featureTitle || defaultHome.featureTitle}
+                  </h3>
                   <p className="mt-2 text-sm text-slate-700">
-                    Durable packaging with a cleaner storefront presentation and stronger order journey.
+                    {homeContent.featureDescription || defaultHome.featureDescription}
                   </p>
                 </div>
               </div>
@@ -99,26 +143,10 @@ function Home() {
 
       <section className="brand-container py-6">
         <div className="grid gap-6 lg:grid-cols-3">
-          {[
-            {
-              image: smallBoxImage,
-              title: "Small Corrugated Box",
-              text: "Lightweight protection for compact retail and courier packaging.",
-            },
-            {
-              image: mediumBoxImage,
-              title: "Medium Shipping Box",
-              text: "Balanced for warehouse dispatch, ecommerce, and wholesale use.",
-            },
-            {
-              image: largeBoxImage,
-              title: "Large Industrial Box",
-              text: "Heavy-duty board strength for demanding industrial handling.",
-            },
-          ].map((item) => (
+          {collectionItems.map((item, index) => (
             <div key={item.title} className="brand-panel brand-card-hover overflow-hidden p-4">
               <img
-                src={item.image}
+                src={[smallBoxImage, mediumBoxImage, largeBoxImage][index % 3]}
                 alt={item.title}
                 className="h-64 w-full rounded-[24px] object-cover"
               />
@@ -137,16 +165,11 @@ function Home() {
           <div>
             <p className="brand-kicker">Why Customers Stay</p>
             <h2 className="mt-3 text-3xl font-black md:text-4xl">
-              Designed for repeat ordering and custom manufacturing.
+              {homeContent.benefitsTitle || defaultHome.benefitsTitle}
             </h2>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
-            {[
-              "Browse packaging by category",
-              "Add multiple products before placing one order",
-              "Upload custom box design PDF files",
-              "Track admin responses from your dashboard",
-            ].map((point) => (
+            {benefitsPoints.map((point) => (
               <div key={point} className="rounded-[24px] bg-[var(--brand-surface-strong)] p-5 text-sm font-semibold">
                 {point}
               </div>
@@ -158,10 +181,14 @@ function Home() {
       <footer className="mt-6 bg-[var(--brand-ink)] py-14 text-white">
         <div className="brand-container grid gap-10 lg:grid-cols-[1fr_0.9fr]">
           <div>
-            <p className="brand-kicker text-amber-300">Contact Us</p>
-            <h2 className="mt-3 text-3xl font-black">Let’s build better packaging together.</h2>
+            <p className="brand-kicker text-amber-300">
+              {homeContent.footerKicker || defaultHome.footerKicker}
+            </p>
+            <h2 className="mt-3 text-3xl font-black">
+              {homeContent.footerTitle || defaultHome.footerTitle}
+            </h2>
             <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300">
-              Reach out for stock box orders, printed corrugated packaging, or custom size requirements.
+              {homeContent.footerSubtitle || defaultHome.footerSubtitle}
             </p>
           </div>
           <div className="grid gap-4 text-sm text-slate-200">
@@ -177,12 +204,12 @@ function Home() {
               </button>
             ))}
             <a
-              href="https://maps.app.goo.gl/6inbbi8fCPFi9qh3A"
+              href={homeContent.addressLink || defaultHome.addressLink}
               target="_blank"
               rel="noreferrer"
               className="mt-2 inline-block text-[var(--brand-primary)] underline underline-offset-4"
             >
-              Shapar Veraval, Rajkot, Gujarat - 360024
+              {homeContent.addressText || defaultHome.addressText}
             </a>
           </div>
         </div>
