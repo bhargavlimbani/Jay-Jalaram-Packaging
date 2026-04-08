@@ -1,10 +1,11 @@
-import { useContext, useEffect, useState } from "react";
+import { useCallback, useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Link } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import { AuthContext } from "../context/AuthContext";
 import { Bar } from "react-chartjs-2";
 import api from "../services/api";
+import { defaultBranding, defaultHome } from "../utils/siteSettingsDefaults";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -46,6 +47,39 @@ function AdminDashboard() {
     "avif",
     "jfif",
   ];
+  const formatContactLines = (items) =>
+    Array.isArray(items)
+      ? items
+          .map((item) => `${item.name || ""}|${item.phone || ""}`.trim())
+          .filter((line) => line !== "|")
+          .join("\n")
+      : "";
+  const formatStatsLines = (items) =>
+    Array.isArray(items)
+      ? items
+          .map((item) => `${item.value || ""}|${item.label || ""}`.trim())
+          .filter((line) => line !== "|")
+          .join("\n")
+      : "";
+  const formatCollectionLines = (items) =>
+    Array.isArray(items)
+      ? items
+          .map((item) => `${item.title || ""}|${item.text || ""}`.trim())
+          .filter((line) => line !== "|")
+          .join("\n")
+      : "";
+
+  const parseLines = (value) =>
+    (value || "")
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+  const parsePairLines = (value) =>
+    parseLines(value).map((line) => {
+      const [left, ...rest] = line.split("|");
+      return { left: (left || "").trim(), right: rest.join("|").trim() };
+    });
   const [orders, setOrders] = useState([]);
   const [products, setProducts] = useState([]);
   const [customers, setCustomers] = useState([]);
@@ -73,6 +107,26 @@ function AdminDashboard() {
   const [message, setMessage] = useState("");
   const [activeSection, setActiveSection] = useState("customers");
   const [loadingOrderActionId, setLoadingOrderActionId] = useState(null);
+  const [brandingForm, setBrandingForm] = useState(defaultBranding);
+  const [homeForm, setHomeForm] = useState({
+    heroKicker: defaultHome.heroKicker,
+    heroTitle: defaultHome.heroTitle,
+    heroSubtitle: defaultHome.heroSubtitle,
+    primaryCtaLabel: defaultHome.primaryCtaLabel,
+    secondaryCtaLabel: defaultHome.secondaryCtaLabel,
+    statsText: formatStatsLines(defaultHome.stats),
+    featureTitle: defaultHome.featureTitle,
+    featureDescription: defaultHome.featureDescription,
+    collectionText: formatCollectionLines(defaultHome.collectionItems),
+    benefitsTitle: defaultHome.benefitsTitle,
+    benefitsText: defaultHome.benefitsPoints.join("\n"),
+    footerKicker: defaultHome.footerKicker,
+    footerTitle: defaultHome.footerTitle,
+    footerSubtitle: defaultHome.footerSubtitle,
+    contactsText: formatContactLines(defaultHome.contacts),
+    addressText: defaultHome.addressText,
+    addressLink: defaultHome.addressLink,
+  });
 
   const formatOrderDateTime = (value) => {
     if (!value) {
@@ -103,14 +157,7 @@ function AdminDashboard() {
     return [];
   };
 
-  useEffect(() => {
-    fetchOrders();
-    fetchProducts();
-    fetchCustomers();
-    fetchMaterials();
-  }, []);
-
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async () => {
     try {
       const res = await api.get("/orders");
       const data = res.data;
@@ -119,9 +166,9 @@ function AdminDashboard() {
       console.log(error);
       setOrders([]);
     }
-  };
+  }, []);
 
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async () => {
     try {
       const res = await fetch("http://localhost:5000/api/products");
       const data = await res.json();
@@ -130,9 +177,9 @@ function AdminDashboard() {
       console.log(error);
       setProducts([]);
     }
-  };
+  }, []);
 
-  const fetchCustomers = async () => {
+  const fetchCustomers = useCallback(async () => {
     try {
       const res = await fetch("http://localhost:5000/api/auth/customers", {
         headers: {
@@ -145,9 +192,9 @@ function AdminDashboard() {
       console.log(error);
       setCustomers([]);
     }
-  };
+  }, []);
 
-  const fetchMaterials = async () => {
+  const fetchMaterials = useCallback(async () => {
     try {
       const res = await api.get("/materials");
       setMaterials(Array.isArray(res.data) ? res.data : []);
@@ -155,7 +202,69 @@ function AdminDashboard() {
       console.log(error);
       setMaterials([]);
     }
-  };
+  }, []);
+
+  const fetchSiteSettings = useCallback(async () => {
+    try {
+      const res = await api.get("/site-settings");
+      const branding = res.data?.branding || defaultBranding;
+      const home = res.data?.home || defaultHome;
+      setBrandingForm({ ...defaultBranding, ...branding });
+      setHomeForm({
+        heroKicker: home.heroKicker || defaultHome.heroKicker,
+        heroTitle: home.heroTitle || defaultHome.heroTitle,
+        heroSubtitle: home.heroSubtitle || defaultHome.heroSubtitle,
+        primaryCtaLabel: home.primaryCtaLabel || defaultHome.primaryCtaLabel,
+        secondaryCtaLabel: home.secondaryCtaLabel || defaultHome.secondaryCtaLabel,
+        statsText: formatStatsLines(home.stats || defaultHome.stats),
+        featureTitle: home.featureTitle || defaultHome.featureTitle,
+        featureDescription: home.featureDescription || defaultHome.featureDescription,
+        collectionText: formatCollectionLines(
+          home.collectionItems || defaultHome.collectionItems
+        ),
+        benefitsTitle: home.benefitsTitle || defaultHome.benefitsTitle,
+        benefitsText: (home.benefitsPoints || defaultHome.benefitsPoints).join(
+          "\n"
+        ),
+        footerKicker: home.footerKicker || defaultHome.footerKicker,
+        footerTitle: home.footerTitle || defaultHome.footerTitle,
+        footerSubtitle: home.footerSubtitle || defaultHome.footerSubtitle,
+        contactsText: formatContactLines(home.contacts || defaultHome.contacts),
+        addressText: home.addressText || defaultHome.addressText,
+        addressLink: home.addressLink || defaultHome.addressLink,
+      });
+    } catch (error) {
+      console.log(error);
+      setBrandingForm(defaultBranding);
+      setHomeForm({
+        heroKicker: defaultHome.heroKicker,
+        heroTitle: defaultHome.heroTitle,
+        heroSubtitle: defaultHome.heroSubtitle,
+        primaryCtaLabel: defaultHome.primaryCtaLabel,
+        secondaryCtaLabel: defaultHome.secondaryCtaLabel,
+        statsText: formatStatsLines(defaultHome.stats),
+        featureTitle: defaultHome.featureTitle,
+        featureDescription: defaultHome.featureDescription,
+        collectionText: formatCollectionLines(defaultHome.collectionItems),
+        benefitsTitle: defaultHome.benefitsTitle,
+        benefitsText: defaultHome.benefitsPoints.join("\n"),
+        footerKicker: defaultHome.footerKicker,
+        footerTitle: defaultHome.footerTitle,
+        footerSubtitle: defaultHome.footerSubtitle,
+        contactsText: formatContactLines(defaultHome.contacts),
+        addressText: defaultHome.addressText,
+        addressLink: defaultHome.addressLink,
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchOrders();
+    fetchProducts();
+    fetchCustomers();
+    fetchMaterials();
+    fetchSiteSettings();
+  }, [fetchOrders, fetchProducts, fetchCustomers, fetchMaterials, fetchSiteSettings]);
 
   const fetchCustomerDetails = async (customerId) => {
     try {
@@ -319,6 +428,120 @@ function AdminDashboard() {
       setMessage("");
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleBrandLogoChange = (event) => {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      setBrandingForm((prev) => ({ ...prev, logoData: "" }));
+      return;
+    }
+
+    const fileExtension = file.name.split(".").pop()?.toLowerCase() || "";
+    const isImageMime = file.type.startsWith("image/");
+    const isAllowedExtension = ALLOWED_IMAGE_EXTENSIONS.includes(fileExtension);
+
+    if (!isImageMime && !isAllowedExtension) {
+      setMessage("Please upload a valid image file for the logo.");
+      event.target.value = "";
+      return;
+    }
+
+    if (file.size > MAX_IMAGE_SIZE_BYTES) {
+      setMessage("Logo image size must be 10 MB or smaller.");
+      event.target.value = "";
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setBrandingForm((prev) => ({ ...prev, logoData: reader.result }));
+      setMessage("");
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const saveBrandingSettings = async () => {
+    try {
+      const payload = {
+        companyName: brandingForm.companyName?.trim() || defaultBranding.companyName,
+        kicker: brandingForm.kicker?.trim() || defaultBranding.kicker,
+        description: brandingForm.description?.trim() || defaultBranding.description,
+        logoData: brandingForm.logoData || "",
+        logoAlt: brandingForm.logoAlt?.trim() || defaultBranding.logoAlt,
+      };
+      const res = await api.put("/site-settings/branding", payload);
+      setBrandingForm({ ...defaultBranding, ...(res.data?.data || payload) });
+      setMessage("Branding settings updated successfully.");
+    } catch (error) {
+      console.log(error);
+      setMessage(error.response?.data?.message || "Unable to update branding settings.");
+    }
+  };
+
+  const saveHomeSettings = async () => {
+    try {
+      const stats = parsePairLines(homeForm.statsText).filter(
+        (item) => item.left && item.right
+      );
+      const collectionItems = parsePairLines(homeForm.collectionText).filter(
+        (item) => item.left && item.right
+      );
+      const contacts = parsePairLines(homeForm.contactsText).filter(
+        (item) => item.left && item.right
+      );
+
+      const payload = {
+        heroKicker: homeForm.heroKicker?.trim() || defaultHome.heroKicker,
+        heroTitle: homeForm.heroTitle?.trim() || defaultHome.heroTitle,
+        heroSubtitle: homeForm.heroSubtitle?.trim() || defaultHome.heroSubtitle,
+        primaryCtaLabel: homeForm.primaryCtaLabel?.trim() || defaultHome.primaryCtaLabel,
+        secondaryCtaLabel:
+          homeForm.secondaryCtaLabel?.trim() || defaultHome.secondaryCtaLabel,
+        stats: stats.map((item) => ({ value: item.left, label: item.right })),
+        featureTitle: homeForm.featureTitle?.trim() || defaultHome.featureTitle,
+        featureDescription:
+          homeForm.featureDescription?.trim() || defaultHome.featureDescription,
+        collectionItems: collectionItems.map((item) => ({
+          title: item.left,
+          text: item.right,
+        })),
+        benefitsTitle: homeForm.benefitsTitle?.trim() || defaultHome.benefitsTitle,
+        benefitsPoints: parseLines(homeForm.benefitsText),
+        footerKicker: homeForm.footerKicker?.trim() || defaultHome.footerKicker,
+        footerTitle: homeForm.footerTitle?.trim() || defaultHome.footerTitle,
+        footerSubtitle: homeForm.footerSubtitle?.trim() || defaultHome.footerSubtitle,
+        contacts: contacts.map((item) => ({ name: item.left, phone: item.right })),
+        addressText: homeForm.addressText?.trim() || defaultHome.addressText,
+        addressLink: homeForm.addressLink?.trim() || defaultHome.addressLink,
+      };
+
+      const res = await api.put("/site-settings/home", payload);
+      setHomeForm({
+        heroKicker: payload.heroKicker,
+        heroTitle: payload.heroTitle,
+        heroSubtitle: payload.heroSubtitle,
+        primaryCtaLabel: payload.primaryCtaLabel,
+        secondaryCtaLabel: payload.secondaryCtaLabel,
+        statsText: formatStatsLines(payload.stats),
+        featureTitle: payload.featureTitle,
+        featureDescription: payload.featureDescription,
+        collectionText: formatCollectionLines(payload.collectionItems),
+        benefitsTitle: payload.benefitsTitle,
+        benefitsText: payload.benefitsPoints.join("\n"),
+        footerKicker: payload.footerKicker,
+        footerTitle: payload.footerTitle,
+        footerSubtitle: payload.footerSubtitle,
+        contactsText: formatContactLines(payload.contacts),
+        addressText: payload.addressText,
+        addressLink: payload.addressLink,
+      });
+      setMessage(res.data?.message || "Home settings updated successfully.");
+    } catch (error) {
+      console.log(error);
+      setMessage(error.response?.data?.message || "Unable to update home settings.");
+    }
   };
 
   const saveProduct = async () => {
@@ -692,6 +915,17 @@ function AdminDashboard() {
                 >
                   Material Stock
                 </button>
+                <button
+                  type="button"
+                  className={`w-full rounded-lg px-4 py-3 text-left transition ${
+                    activeSection === "site-settings"
+                      ? "bg-white text-slate-900"
+                      : "bg-slate-800 hover:bg-slate-700"
+                  }`}
+                  onClick={() => setActiveSection("site-settings")}
+                >
+                  Site Settings
+                </button>
                 <Link
                   to="/invoices"
                   className="block w-full rounded-lg px-4 py-3 text-left transition bg-slate-800 hover:bg-slate-700"
@@ -975,6 +1209,264 @@ function AdminDashboard() {
                       )}
                     </tbody>
                   </table>
+                </div>
+              </div>
+            )}
+
+            {activeSection === "site-settings" && (
+              <div className="rounded-2xl bg-white p-6 shadow-sm">
+                <h2 className="mb-4 text-2xl font-bold">Site Settings</h2>
+                <div className="grid gap-6">
+                  <div className="rounded-2xl border border-slate-200 p-5">
+                    <h3 className="text-xl font-semibold">Branding</h3>
+                    <div className="mt-4 grid gap-3 md:grid-cols-2">
+                      <input
+                        className="rounded border p-2"
+                        placeholder="Company Name"
+                        value={brandingForm.companyName || ""}
+                        onChange={(e) =>
+                          setBrandingForm((prev) => ({
+                            ...prev,
+                            companyName: e.target.value,
+                          }))
+                        }
+                      />
+                      <input
+                        className="rounded border p-2"
+                        placeholder="Kicker"
+                        value={brandingForm.kicker || ""}
+                        onChange={(e) =>
+                          setBrandingForm((prev) => ({
+                            ...prev,
+                            kicker: e.target.value,
+                          }))
+                        }
+                      />
+                      <input
+                        className="rounded border p-2"
+                        placeholder="Logo Alt Text"
+                        value={brandingForm.logoAlt || ""}
+                        onChange={(e) =>
+                          setBrandingForm((prev) => ({
+                            ...prev,
+                            logoAlt: e.target.value,
+                          }))
+                        }
+                      />
+                      <input
+                        className="rounded border p-2"
+                        type="file"
+                        accept="image/*"
+                        onChange={handleBrandLogoChange}
+                      />
+                    </div>
+                    <textarea
+                      className="mt-3 w-full rounded border p-2"
+                      rows="3"
+                      placeholder="Short description"
+                      value={brandingForm.description || ""}
+                      onChange={(e) =>
+                        setBrandingForm((prev) => ({
+                          ...prev,
+                          description: e.target.value,
+                        }))
+                      }
+                    />
+                    {brandingForm.logoData && (
+                      <div className="mt-4">
+                        <img
+                          src={brandingForm.logoData}
+                          alt="Logo preview"
+                          className="h-20 w-auto rounded border bg-white p-2"
+                        />
+                      </div>
+                    )}
+                    <div className="mt-4">
+                      <button
+                        className="rounded bg-emerald-600 px-4 py-2 text-white"
+                        onClick={saveBrandingSettings}
+                      >
+                        Save Branding
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-200 p-5">
+                    <h3 className="text-xl font-semibold">Home Page</h3>
+                    <div className="mt-4 grid gap-3 md:grid-cols-2">
+                      <input
+                        className="rounded border p-2"
+                        placeholder="Hero Kicker"
+                        value={homeForm.heroKicker}
+                        onChange={(e) =>
+                          setHomeForm((prev) => ({ ...prev, heroKicker: e.target.value }))
+                        }
+                      />
+                      <input
+                        className="rounded border p-2"
+                        placeholder="Hero Title"
+                        value={homeForm.heroTitle}
+                        onChange={(e) =>
+                          setHomeForm((prev) => ({ ...prev, heroTitle: e.target.value }))
+                        }
+                      />
+                      <input
+                        className="rounded border p-2"
+                        placeholder="Primary Button Label"
+                        value={homeForm.primaryCtaLabel}
+                        onChange={(e) =>
+                          setHomeForm((prev) => ({
+                            ...prev,
+                            primaryCtaLabel: e.target.value,
+                          }))
+                        }
+                      />
+                      <input
+                        className="rounded border p-2"
+                        placeholder="Secondary Button Label"
+                        value={homeForm.secondaryCtaLabel}
+                        onChange={(e) =>
+                          setHomeForm((prev) => ({
+                            ...prev,
+                            secondaryCtaLabel: e.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                    <textarea
+                      className="mt-3 w-full rounded border p-2"
+                      rows="3"
+                      placeholder="Hero Subtitle"
+                      value={homeForm.heroSubtitle}
+                      onChange={(e) =>
+                        setHomeForm((prev) => ({ ...prev, heroSubtitle: e.target.value }))
+                      }
+                    />
+                    <div className="mt-4 grid gap-3 md:grid-cols-2">
+                      <input
+                        className="rounded border p-2"
+                        placeholder="Featured Title"
+                        value={homeForm.featureTitle}
+                        onChange={(e) =>
+                          setHomeForm((prev) => ({ ...prev, featureTitle: e.target.value }))
+                        }
+                      />
+                      <input
+                        className="rounded border p-2"
+                        placeholder="Benefits Title"
+                        value={homeForm.benefitsTitle}
+                        onChange={(e) =>
+                          setHomeForm((prev) => ({ ...prev, benefitsTitle: e.target.value }))
+                        }
+                      />
+                    </div>
+                    <textarea
+                      className="mt-3 w-full rounded border p-2"
+                      rows="2"
+                      placeholder="Featured Description"
+                      value={homeForm.featureDescription}
+                      onChange={(e) =>
+                        setHomeForm((prev) => ({
+                          ...prev,
+                          featureDescription: e.target.value,
+                        }))
+                      }
+                    />
+                    <div className="mt-4 grid gap-3 md:grid-cols-2">
+                      <textarea
+                        className="rounded border p-2"
+                        rows="4"
+                        placeholder="Stats list (Value|Label per line)"
+                        value={homeForm.statsText}
+                        onChange={(e) =>
+                          setHomeForm((prev) => ({ ...prev, statsText: e.target.value }))
+                        }
+                      />
+                      <textarea
+                        className="rounded border p-2"
+                        rows="4"
+                        placeholder="Collection list (Title|Description per line)"
+                        value={homeForm.collectionText}
+                        onChange={(e) =>
+                          setHomeForm((prev) => ({
+                            ...prev,
+                            collectionText: e.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                    <textarea
+                      className="mt-3 w-full rounded border p-2"
+                      rows="4"
+                      placeholder="Benefits points (one per line)"
+                      value={homeForm.benefitsText}
+                      onChange={(e) =>
+                        setHomeForm((prev) => ({ ...prev, benefitsText: e.target.value }))
+                      }
+                    />
+                    <div className="mt-4 grid gap-3 md:grid-cols-2">
+                      <input
+                        className="rounded border p-2"
+                        placeholder="Footer Kicker"
+                        value={homeForm.footerKicker}
+                        onChange={(e) =>
+                          setHomeForm((prev) => ({ ...prev, footerKicker: e.target.value }))
+                        }
+                      />
+                      <input
+                        className="rounded border p-2"
+                        placeholder="Footer Title"
+                        value={homeForm.footerTitle}
+                        onChange={(e) =>
+                          setHomeForm((prev) => ({ ...prev, footerTitle: e.target.value }))
+                        }
+                      />
+                    </div>
+                    <textarea
+                      className="mt-3 w-full rounded border p-2"
+                      rows="2"
+                      placeholder="Footer Subtitle"
+                      value={homeForm.footerSubtitle}
+                      onChange={(e) =>
+                        setHomeForm((prev) => ({ ...prev, footerSubtitle: e.target.value }))
+                      }
+                    />
+                    <div className="mt-4 grid gap-3 md:grid-cols-2">
+                      <input
+                        className="rounded border p-2"
+                        placeholder="Address Text"
+                        value={homeForm.addressText}
+                        onChange={(e) =>
+                          setHomeForm((prev) => ({ ...prev, addressText: e.target.value }))
+                        }
+                      />
+                      <input
+                        className="rounded border p-2"
+                        placeholder="Address Link"
+                        value={homeForm.addressLink}
+                        onChange={(e) =>
+                          setHomeForm((prev) => ({ ...prev, addressLink: e.target.value }))
+                        }
+                      />
+                    </div>
+                    <textarea
+                      className="mt-3 w-full rounded border p-2"
+                      rows="4"
+                      placeholder="Contacts list (Name|Phone per line)"
+                      value={homeForm.contactsText}
+                      onChange={(e) =>
+                        setHomeForm((prev) => ({ ...prev, contactsText: e.target.value }))
+                      }
+                    />
+                    <div className="mt-4">
+                      <button
+                        className="rounded bg-emerald-600 px-4 py-2 text-white"
+                        onClick={saveHomeSettings}
+                      >
+                        Save Home Page
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}

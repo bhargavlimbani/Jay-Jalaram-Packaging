@@ -8,6 +8,7 @@ require("./models/PendingRegistration");
 require("./models/Material");
 require("./models/User");
 require("./models/Payment");
+require("./models/SiteSetting");
 const Product = require("./models/Product");
 const Material = require("./models/Material");
 
@@ -171,6 +172,8 @@ const productRoutes = require("./routes/productRoutes");
 app.use("/api/products", productRoutes);
 const invoiceRoutes = require("./routes/invoiceRoutes");
 app.use("/api/invoices", invoiceRoutes);
+const siteSettingsRoutes = require("./routes/siteSettingsRoutes");
+app.use("/api/site-settings", siteSettingsRoutes);
 
 const orderRoutes = require("./routes/orderRoutes");
 app.use("/api/orders", orderRoutes);

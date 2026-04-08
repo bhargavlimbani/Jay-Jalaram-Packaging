@@ -2,11 +2,14 @@ import { Link, useNavigate } from "react-router-dom";
 import { useContext, useEffect, useRef, useState } from "react";
 import { AuthContext } from "../context/AuthContext";
 import logo from "../assets/logo.png";
+import api from "../services/api";
+import { defaultBranding } from "../utils/siteSettingsDefaults";
 
 function Navbar() {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
   const [showProductsMenu, setShowProductsMenu] = useState(false);
+  const [branding, setBranding] = useState(defaultBranding);
   const closeMenuTimeoutRef = useRef(null);
 
   const productCategories = [
@@ -41,11 +44,33 @@ function Navbar() {
     }, 180);
   };
 
-  useEffect(() => () => {
-    if (closeMenuTimeoutRef.current) {
-      clearTimeout(closeMenuTimeoutRef.current);
-    }
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchBranding = async () => {
+      try {
+        const res = await api.get("/site-settings/branding");
+        if (isMounted) {
+          setBranding({ ...defaultBranding, ...(res.data || {}) });
+        }
+      } catch (error) {
+        if (isMounted) {
+          setBranding(defaultBranding);
+        }
+      }
+    };
+
+    fetchBranding();
+
+    return () => {
+      if (closeMenuTimeoutRef.current) {
+        clearTimeout(closeMenuTimeoutRef.current);
+      }
+      isMounted = false;
+    };
   }, []);
+
+  const logoSrc = branding.logoData || logo;
 
   return (
     <header className="sticky top-0 z-40 border-b border-black/5 bg-white/80 backdrop-blur-xl">
@@ -54,18 +79,18 @@ function Navbar() {
           <Link to="/" className="flex items-center gap-3">
             <div className="rounded-[24px] bg-[var(--brand-primary-soft)] p-2 shadow-sm">
               <img
-                src={logo}
-                alt="Jai Jalaram Packaging"
+                src={logoSrc}
+                alt={branding.logoAlt || "Company Logo"}
                 className="h-16 w-auto object-contain md:h-20"
               />
             </div>
             <div>
-              <p className="brand-kicker">Industrial Packaging</p>
+              <p className="brand-kicker">{branding.kicker || defaultBranding.kicker}</p>
               <p className="text-2xl font-black leading-tight md:text-3xl">
-                Jai Jalaram Packaging
+                {branding.companyName || defaultBranding.companyName}
               </p>
               <p className="text-sm text-slate-500 md:text-base">
-                Corrugated boxes built for transport, display, and custom branding.
+                {branding.description || defaultBranding.description}
               </p>
             </div>
           </Link>
