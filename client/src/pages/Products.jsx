@@ -6,18 +6,21 @@ import api from "../services/api";
 function Products() {
   const [products, setProducts] = useState([]);
   const [search, setSearch] = useState("");
+  const [productTypes, setProductTypes] = useState([]);
   const [searchParams] = useSearchParams();
   const selectedCategory = searchParams.get("category") || "";
-  const categoryTitleMap = {
-    "carton-box": "Carton Box",
-    "corrugated-box": "Corrugated Box",
-    "printed-corrugated-box": "Printed Corrugated Box",
-    "duplex-box": "Duplex Box",
-  };
-  const categoryOptions = [
-    { label: "All Boxes", value: "" },
-    ...Object.entries(categoryTitleMap).map(([value, label]) => ({ value, label })),
+  const fallbackTypes = [
+    { label: "Carton Box", value: "carton-box" },
+    { label: "Corrugated Box", value: "corrugated-box" },
+    { label: "Printed Corrugated Box", value: "printed-corrugated-box" },
+    { label: "Duplex Box", value: "duplex-box" },
   ];
+  const typeList = productTypes.length > 0 ? productTypes : fallbackTypes;
+  const categoryTitleMap = typeList.reduce((acc, item) => {
+    acc[item.value] = item.label;
+    return acc;
+  }, {});
+  const categoryOptions = [{ label: "All Boxes", value: "" }, ...typeList];
 
   const getProductCategory = (product) => product.box_type || "corrugated-box";
 
@@ -32,7 +35,18 @@ function Products() {
       }
     };
 
+    const loadTypes = async () => {
+      try {
+        const res = await api.get("/product-types");
+        setProductTypes(Array.isArray(res.data) ? res.data : []);
+      } catch (error) {
+        console.log(error);
+        setProductTypes([]);
+      }
+    };
+
     loadProducts();
+    loadTypes();
   }, []);
 
   const filteredProducts = products.filter((product) => {

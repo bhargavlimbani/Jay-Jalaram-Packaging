@@ -1,18 +1,13 @@
 const Product = require("../models/Product");
-
-const ALLOWED_BOX_TYPES = [
-  "carton-box",
-  "corrugated-box",
-  "printed-corrugated-box",
-  "duplex-box",
-];
+const ProductType = require("../models/ProductType");
 
 // Create Product (Admin only)
 exports.createProduct = async (req, res) => {
   try {
     const { box_type, name, description, image_data, price, stock } = req.body;
 
-    if (!ALLOWED_BOX_TYPES.includes(box_type)) {
+    const type = await ProductType.findOne({ where: { value: box_type } });
+    if (!type) {
       return res.status(400).json({ message: "Please select a valid box type" });
     }
 
@@ -53,7 +48,8 @@ exports.updateProduct = async (req, res) => {
       return res.status(404).json({ message: "Product not found" });
     }
 
-    if (!ALLOWED_BOX_TYPES.includes(box_type)) {
+    const type = await ProductType.findOne({ where: { value: box_type } });
+    if (!type) {
       return res.status(400).json({ message: "Please select a valid box type" });
     }
 

@@ -3,12 +3,7 @@ const sequelize = require("../config/db");
 
 const Product = sequelize.define("Product", {
   box_type: {
-    type: DataTypes.ENUM(
-      "carton-box",
-      "corrugated-box",
-      "printed-corrugated-box",
-      "duplex-box"
-    ),
+    type: DataTypes.STRING,
     allowNull: false,
     defaultValue: "corrugated-box",
   },
