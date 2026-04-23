@@ -27,12 +27,8 @@ ChartJS.register(
 );
 
 function AdminDashboard() {
-  const boxTypeOptions = [
-    { label: "Carton Box", value: "carton-box" },
-    { label: "Corrugated Box", value: "corrugated-box" },
-    { label: "Printed Corrugated Box", value: "printed-corrugated-box" },
-    { label: "Duplex Box", value: "duplex-box" },
-  ];
+  const [productTypes, setProductTypes] = useState([]);
+  const [newTypeLabel, setNewTypeLabel] = useState("");
   const { logout } = useContext(AuthContext);
   const navigate = useNavigate();
   const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
@@ -104,6 +100,7 @@ function AdminDashboard() {
     unit_price: "",
   });
   const [editingMaterialId, setEditingMaterialId] = useState(null);
+  const [newMaterialName, setNewMaterialName] = useState("");
   const [message, setMessage] = useState("");
   const [activeSection, setActiveSection] = useState("customers");
   const [loadingOrderActionId, setLoadingOrderActionId] = useState(null);
@@ -127,6 +124,18 @@ function AdminDashboard() {
     addressText: defaultHome.addressText,
     addressLink: defaultHome.addressLink,
   });
+
+  const fallbackBoxTypes = [
+    { label: "Carton Box", value: "carton-box" },
+    { label: "Corrugated Box", value: "corrugated-box" },
+    { label: "Printed Corrugated Box", value: "printed-corrugated-box" },
+    { label: "Duplex Box", value: "duplex-box" },
+  ];
+
+  const boxTypeOptions =
+    productTypes.length > 0
+      ? productTypes.map((type) => ({ label: type.label, value: type.value }))
+      : fallbackBoxTypes;
 
   const formatOrderDateTime = (value) => {
     if (!value) {
@@ -176,6 +185,16 @@ function AdminDashboard() {
     } catch (error) {
       console.log(error);
       setProducts([]);
+    }
+  }, []);
+
+  const fetchProductTypes = useCallback(async () => {
+    try {
+      const res = await api.get("/product-types");
+      setProductTypes(Array.isArray(res.data) ? res.data : []);
+    } catch (error) {
+      console.log(error);
+      setProductTypes([]);
     }
   }, []);
 
@@ -261,10 +280,35 @@ function AdminDashboard() {
   useEffect(() => {
     fetchOrders();
     fetchProducts();
+    fetchProductTypes();
     fetchCustomers();
     fetchMaterials();
     fetchSiteSettings();
-  }, [fetchOrders, fetchProducts, fetchCustomers, fetchMaterials, fetchSiteSettings]);
+  }, [
+    fetchOrders,
+    fetchProducts,
+    fetchProductTypes,
+    fetchCustomers,
+    fetchMaterials,
+    fetchSiteSettings,
+  ]);
+
+  const addProductType = async () => {
+    const label = newTypeLabel.trim();
+    if (!label) {
+      setMessage("Please enter a product type name.");
+      return;
+    }
+    try {
+      await api.post("/product-types", { label });
+      setNewTypeLabel("");
+      setMessage("Product type added successfully.");
+      fetchProductTypes();
+    } catch (error) {
+      console.log(error);
+      setMessage(error.response?.data?.message || "Unable to add product type.");
+    }
+  };
 
   const fetchCustomerDetails = async (customerId) => {
     try {
@@ -395,6 +439,59 @@ function AdminDashboard() {
       unit_price: "",
     });
     setEditingMaterialId(null);
+  };
+
+  const handleMaterialSelect = (event) => {
+    const selectedId = event.target.value;
+    if (!selectedId) {
+      resetMaterialForm();
+      return;
+    }
+    const selectedMaterial = materials.find(
+      (material) => String(material.id) === String(selectedId)
+    );
+    if (!selectedMaterial) {
+      return;
+    }
+    setEditingMaterialId(selectedMaterial.id);
+    setMaterialForm({
+      name: selectedMaterial.name || "",
+      unit: selectedMaterial.unit || "kg",
+      quantity: selectedMaterial.quantity ?? "",
+      unit_price: selectedMaterial.unit_price ?? "",
+    });
+  };
+
+  const addNewMaterial = async () => {
+    const name = newMaterialName.trim();
+    if (!name) {
+      setMessage("Please enter a material name.");
+      return;
+    }
+    try {
+      const res = await api.post("/materials", {
+        name,
+        unit: "kg",
+        quantity: 0,
+        unit_price: 0,
+      });
+      const created = res.data;
+      setMessage("Material added successfully.");
+      setNewMaterialName("");
+      await fetchMaterials();
+      if (created?.id) {
+        setEditingMaterialId(created.id);
+        setMaterialForm({
+          name: created.name || name,
+          unit: created.unit || "kg",
+          quantity: created.quantity ?? "",
+          unit_price: created.unit_price ?? "",
+        });
+      }
+    } catch (error) {
+      console.log(error);
+      setMessage(error.response?.data?.message || "Unable to add material.");
+    }
   };
 
   const handleProductImageChange = (event) => {
@@ -607,6 +704,10 @@ function AdminDashboard() {
 
   const saveMaterial = async () => {
     try {
+      if (!editingMaterialId) {
+        setMessage("Please select a material to update.");
+        return;
+      }
       const payload = {
         name: materialForm.name.trim(),
         unit: materialForm.unit.trim() || "kg",
@@ -615,17 +716,12 @@ function AdminDashboard() {
       };
 
       if (!payload.name) {
-        setMessage("Please enter a material name.");
+        setMessage("Please select a material name.");
         return;
       }
 
-      if (editingMaterialId) {
-        await api.put(`/materials/${editingMaterialId}`, payload);
-        setMessage("Material updated successfully.");
-      } else {
-        await api.post("/materials", payload);
-        setMessage("Material added successfully.");
-      }
+      await api.put(`/materials/${editingMaterialId}`, payload);
+      setMessage("Material updated successfully.");
 
       resetMaterialForm();
       fetchMaterials();
@@ -649,6 +745,9 @@ function AdminDashboard() {
     try {
       await api.delete(`/materials/${id}`);
       setMessage("Material deleted successfully.");
+      if (editingMaterialId === id) {
+        resetMaterialForm();
+      }
       fetchMaterials();
     } catch (error) {
       console.log(error);
@@ -821,19 +920,64 @@ function AdminDashboard() {
                     )}
                   </td>
                   <td className="border p-2 align-top">
-                    <button
-                      className="mb-2 mr-2 rounded bg-indigo-600 px-3 py-1 text-white hover:bg-indigo-700"
-                      onClick={() => fetchOrderChat(order.id)}
-                    >
-                      Chat
-                    </button>
                     {showActionButtons ? (
-                      <>
-                        <button className="mb-2 mr-2 rounded bg-green-600 px-3 py-1 text-white disabled:opacity-60" onClick={() => updateStatus(order.id, "Accepted")} disabled={loadingOrderActionId === order.id || order.status === "Accepted" || order.status === "Completed"}>Accept</button>
-                        <button className="mb-2 mr-2 rounded bg-emerald-700 px-3 py-1 text-white disabled:opacity-60" onClick={() => updateStatus(order.id, "Completed")} disabled={loadingOrderActionId === order.id || order.status !== "Accepted"}>Complete Order</button>
-                        <button className="mb-2 mr-2 rounded bg-amber-500 px-3 py-1 text-white disabled:opacity-60" onClick={() => generateInvoice(order.id)} disabled={loadingOrderActionId === order.id || order.status !== "Completed" || Boolean(order.Invoice)}>Make Invoice</button>
-                        <button className="rounded bg-red-600 px-3 py-1 text-white disabled:opacity-60" onClick={() => updateStatus(order.id, "Rejected")} disabled={loadingOrderActionId === order.id || order.status === "Rejected" || order.status === "Completed"}>Reject</button>
-                      </>
+                      <select
+                        className="w-full rounded border px-3 py-2 text-sm"
+                        defaultValue=""
+                        onChange={(event) => {
+                          const action = event.target.value;
+                          event.target.value = "";
+                          if (!action) return;
+                          if (action === "chat") fetchOrderChat(order.id);
+                          if (action === "accept") updateStatus(order.id, "Accepted");
+                          if (action === "complete") updateStatus(order.id, "Completed");
+                          if (action === "invoice") generateInvoice(order.id);
+                          if (action === "reject") updateStatus(order.id, "Rejected");
+                        }}
+                      >
+                        <option value="" disabled>
+                          Select Action
+                        </option>
+                        <option value="chat">Open Chat</option>
+                        <option
+                          value="accept"
+                          disabled={
+                            loadingOrderActionId === order.id ||
+                            order.status === "Accepted" ||
+                            order.status === "Completed"
+                          }
+                        >
+                          Accept
+                        </option>
+                        <option
+                          value="complete"
+                          disabled={
+                            loadingOrderActionId === order.id || order.status !== "Accepted"
+                          }
+                        >
+                          Complete Order
+                        </option>
+                        <option
+                          value="invoice"
+                          disabled={
+                            loadingOrderActionId === order.id ||
+                            order.status !== "Completed" ||
+                            Boolean(order.Invoice)
+                          }
+                        >
+                          Make Invoice
+                        </option>
+                        <option
+                          value="reject"
+                          disabled={
+                            loadingOrderActionId === order.id ||
+                            order.status === "Rejected" ||
+                            order.status === "Completed"
+                          }
+                        >
+                          Reject
+                        </option>
+                      </select>
                     ) : (
                       <span className="text-sm text-slate-500">Completed</span>
                     )}
@@ -1036,6 +1180,20 @@ function AdminDashboard() {
             {activeSection === "products" && (
               <div className="rounded-2xl bg-white p-6 shadow-sm">
                 <h2 className="mb-4 text-2xl font-bold">Product Management</h2>
+                <div className="mb-6 grid gap-3 md:grid-cols-[1fr_auto]">
+                  <input
+                    className="rounded border p-2"
+                    placeholder="New product type name (e.g. Rigid Box)"
+                    value={newTypeLabel}
+                    onChange={(e) => setNewTypeLabel(e.target.value)}
+                  />
+                  <button
+                    className="rounded bg-indigo-700 px-4 py-2 text-white shadow-sm transition hover:bg-indigo-800"
+                    onClick={addProductType}
+                  >
+                    Add Type
+                  </button>
+                </div>
                 <div className="mb-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                   <select
                     className="rounded border p-2"
@@ -1119,13 +1277,33 @@ function AdminDashboard() {
             {activeSection === "materials" && (
               <div className="rounded-2xl bg-white p-6 shadow-sm">
                 <h2 className="mb-4 text-2xl font-bold">Material Stock</h2>
-                <div className="mb-4 grid gap-3 md:grid-cols-4">
+                <div className="mb-4 grid gap-3 md:grid-cols-[1fr_auto]">
                   <input
                     className="rounded border p-2"
-                    placeholder="Material Name"
-                    value={materialForm.name}
-                    onChange={(e) => setMaterialForm({ ...materialForm, name: e.target.value })}
+                    placeholder="Add new material name (e.g. Paper Roll)"
+                    value={newMaterialName}
+                    onChange={(e) => setNewMaterialName(e.target.value)}
                   />
+                  <button
+                    className="rounded bg-indigo-700 px-4 py-2 text-white shadow-sm transition hover:bg-indigo-800"
+                    onClick={addNewMaterial}
+                  >
+                    Add Material
+                  </button>
+                </div>
+                <div className="mb-4 grid gap-3 md:grid-cols-3">
+                  <select
+                    className="rounded border p-2"
+                    value={editingMaterialId ? String(editingMaterialId) : ""}
+                    onChange={handleMaterialSelect}
+                  >
+                    <option value="">Select Existing Material</option>
+                    {materials.map((material) => (
+                      <option key={material.id} value={material.id}>
+                        {material.name}
+                      </option>
+                    ))}
+                  </select>
                   <input
                     className="rounded border p-2"
                     placeholder="Unit (kg)"
@@ -1142,7 +1320,9 @@ function AdminDashboard() {
                     className="rounded border p-2"
                     placeholder="Price per Unit"
                     value={materialForm.unit_price}
-                    onChange={(e) => setMaterialForm({ ...materialForm, unit_price: e.target.value })}
+                    onChange={(e) =>
+                      setMaterialForm({ ...materialForm, unit_price: e.target.value })
+                    }
                   />
                 </div>
                 <div className="mb-6">
@@ -1150,7 +1330,7 @@ function AdminDashboard() {
                     className="mr-2 rounded bg-green-600 px-4 py-2 text-white"
                     onClick={saveMaterial}
                   >
-                    {editingMaterialId ? "Update Material" : "Add Material"}
+                    Update Material
                   </button>
                   <button
                     className="rounded bg-gray-500 px-4 py-2 text-white"
@@ -1283,7 +1463,7 @@ function AdminDashboard() {
                     )}
                     <div className="mt-4">
                       <button
-                        className="rounded bg-emerald-600 px-4 py-2 text-white"
+                        className="rounded bg-indigo-700 px-4 py-2 text-white shadow-sm transition hover:bg-indigo-800"
                         onClick={saveBrandingSettings}
                       >
                         Save Branding
@@ -1460,7 +1640,7 @@ function AdminDashboard() {
                     />
                     <div className="mt-4">
                       <button
-                        className="rounded bg-emerald-600 px-4 py-2 text-white"
+                        className="rounded bg-indigo-700 px-4 py-2 text-white shadow-sm transition hover:bg-indigo-800"
                         onClick={saveHomeSettings}
                       >
                         Save Home Page

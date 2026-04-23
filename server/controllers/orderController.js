@@ -423,7 +423,7 @@ exports.updateOrderStatus = async (req, res) => {
 
     const previousStatus = order.status;
 
-    if (status === "Accepted" && order.status !== "Accepted" && order.order_type === "product") {
+    if (status === "Accepted" && previousStatus !== "Accepted" && order.order_type === "product") {
       const orderItems = parseOrderItems(order);
 
       if (orderItems.length > 0) {

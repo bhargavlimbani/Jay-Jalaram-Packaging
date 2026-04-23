@@ -5,6 +5,13 @@ import logo from "../assets/logo.png";
 import api from "../services/api";
 import { defaultBranding } from "../utils/siteSettingsDefaults";
 
+const FALLBACK_CATEGORIES = [
+  { label: "Carton Box", value: "carton-box" },
+  { label: "Corrugated Box", value: "corrugated-box" },
+  { label: "Printed Corrugated Box", value: "printed-corrugated-box" },
+  { label: "Duplex Box", value: "duplex-box" },
+];
+
 function Navbar() {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
@@ -12,12 +19,7 @@ function Navbar() {
   const [branding, setBranding] = useState(defaultBranding);
   const closeMenuTimeoutRef = useRef(null);
 
-  const productCategories = [
-    { label: "Carton Box", value: "carton-box" },
-    { label: "Corrugated Box", value: "corrugated-box" },
-    { label: "Printed Corrugated Box", value: "printed-corrugated-box" },
-    { label: "Duplex Box", value: "duplex-box" },
-  ];
+  const [productCategories, setProductCategories] = useState(FALLBACK_CATEGORIES);
 
   const openCategory = (category) => {
     if (closeMenuTimeoutRef.current) {
@@ -60,7 +62,26 @@ function Navbar() {
       }
     };
 
+    const fetchCategories = async () => {
+      try {
+        const res = await api.get("/product-types");
+        if (isMounted) {
+          const list = Array.isArray(res.data) ? res.data : [];
+          setProductCategories(
+            list.length > 0
+              ? list.map((item) => ({ label: item.label, value: item.value }))
+              : FALLBACK_CATEGORIES
+          );
+        }
+      } catch (error) {
+        if (isMounted) {
+          setProductCategories(FALLBACK_CATEGORIES);
+        }
+      }
+    };
+
     fetchBranding();
+    fetchCategories();
 
     return () => {
       if (closeMenuTimeoutRef.current) {

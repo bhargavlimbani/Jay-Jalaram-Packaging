@@ -1,28 +1,48 @@
 const Product = require("../models/Product");
+const ProductType = require("../models/ProductType");
 
-const ALLOWED_BOX_TYPES = [
-  "carton-box",
-  "corrugated-box",
-  "printed-corrugated-box",
-  "duplex-box",
-];
+const parseProductNumbers = ({ price, stock }) => {
+  const parsedPrice = Number(price);
+  const parsedStock = Number(stock);
+
+  if (Number.isNaN(parsedPrice) || parsedPrice < 0) {
+    return { error: "Please enter a valid product price" };
+  }
+
+  if (!Number.isInteger(parsedStock) || parsedStock < 0) {
+    return { error: "Please enter a valid stock quantity" };
+  }
+
+  return { parsedPrice, parsedStock };
+};
 
 // Create Product (Admin only)
 exports.createProduct = async (req, res) => {
   try {
     const { box_type, name, description, image_data, price, stock } = req.body;
+    const normalizedName = String(name || "").trim();
+    const parsedValues = parseProductNumbers({ price, stock });
 
-    if (!ALLOWED_BOX_TYPES.includes(box_type)) {
+    if (!normalizedName) {
+      return res.status(400).json({ message: "Product name is required" });
+    }
+
+    if (parsedValues.error) {
+      return res.status(400).json({ message: parsedValues.error });
+    }
+
+    const type = await ProductType.findOne({ where: { value: box_type } });
+    if (!type) {
       return res.status(400).json({ message: "Please select a valid box type" });
     }
 
     const product = await Product.create({
       box_type,
-      name,
+      name: normalizedName,
       description,
       image_data,
-      price,
-      stock,
+      price: parsedValues.parsedPrice,
+      stock: parsedValues.parsedStock,
     });
 
     res.status(201).json(product);
@@ -46,6 +66,8 @@ exports.updateProduct = async (req, res) => {
   try {
     const { id } = req.params;
     const { box_type, name, description, image_data, price, stock } = req.body;
+    const normalizedName = String(name || "").trim();
+    const parsedValues = parseProductNumbers({ price, stock });
 
     const product = await Product.findByPk(id);
 
@@ -53,17 +75,26 @@ exports.updateProduct = async (req, res) => {
       return res.status(404).json({ message: "Product not found" });
     }
 
-    if (!ALLOWED_BOX_TYPES.includes(box_type)) {
+    if (!normalizedName) {
+      return res.status(400).json({ message: "Product name is required" });
+    }
+
+    if (parsedValues.error) {
+      return res.status(400).json({ message: parsedValues.error });
+    }
+
+    const type = await ProductType.findOne({ where: { value: box_type } });
+    if (!type) {
       return res.status(400).json({ message: "Please select a valid box type" });
     }
 
     await product.update({
       box_type,
-      name,
+      name: normalizedName,
       description,
       image_data,
-      price,
-      stock,
+      price: parsedValues.parsedPrice,
+      stock: parsedValues.parsedStock,
     });
 
     res.json(product);
