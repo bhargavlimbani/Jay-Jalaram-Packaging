@@ -1,6 +1,15 @@
 const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
+process.on("unhandledRejection", (error) => {
+  console.error("Unhandled promise rejection during server startup/runtime:", error);
+});
+
+process.on("uncaughtException", (error) => {
+  console.error("Uncaught exception during server startup/runtime:", error);
+  process.exit(1);
+});
+
 require("./models/Product");
 require("./models/Order");
 require("./models/Invoice");
@@ -112,72 +121,87 @@ const syncDatabase = async () => {
   throw new Error("Database sync failed after repairing tables.");
 };
 
-syncDatabase().then(async () => {
-  try {
-    const [columns] = await sequelize.query(
-      "SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'Products' AND COLUMN_NAME = 'box_type'",
-      { replacements: [dbName] }
-    );
+syncDatabase()
+  .then(async () => {
+    try {
+      const [columns] = await sequelize.query(
+        "SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'Products' AND COLUMN_NAME = 'box_type'",
+        { replacements: [dbName] }
+      );
 
-    if (!Array.isArray(columns) || columns.length === 0) {
-      await sequelize.query(
-        "ALTER TABLE `Products` ADD COLUMN `box_type` VARCHAR(80) NOT NULL DEFAULT 'corrugated-box'"
-      );
-    } else if (columns[0]?.DATA_TYPE && columns[0].DATA_TYPE.toLowerCase() !== "varchar") {
-      await sequelize.query(
-        "ALTER TABLE `Products` MODIFY COLUMN `box_type` VARCHAR(80) NOT NULL DEFAULT 'corrugated-box'"
-      );
+      if (!Array.isArray(columns) || columns.length === 0) {
+        await sequelize.query(
+          "ALTER TABLE `Products` ADD COLUMN `box_type` VARCHAR(80) NOT NULL DEFAULT 'corrugated-box'"
+        );
+      } else if (
+        columns[0]?.DATA_TYPE &&
+        columns[0].DATA_TYPE.toLowerCase() !== "varchar"
+      ) {
+        await sequelize.query(
+          "ALTER TABLE `Products` MODIFY COLUMN `box_type` VARCHAR(80) NOT NULL DEFAULT 'corrugated-box'"
+        );
+      }
+    } catch (error) {
+      console.log("Unable to ensure Products.box_type column:", error.message);
     }
-  } catch (error) {
-    console.log("Unable to ensure Products.box_type column:", error.message);
-  }
 
-  await Product.findOrCreate({
-    where: { name: "Custom Size Box" },
-    defaults: {
-      box_type: "corrugated-box",
-      description: "Box made as per customer size requirement",
-      price: 50,
-      stock: 100,
-    },
+    await Product.findOrCreate({
+      where: { name: "Custom Size Box" },
+      defaults: {
+        box_type: "corrugated-box",
+        description: "Box made as per customer size requirement",
+        price: 50,
+        stock: 100,
+      },
+    });
+
+    await Product.findOrCreate({
+      where: { name: "Custom Design Box" },
+      defaults: {
+        box_type: "printed-corrugated-box",
+        description: "Printed and designed box for brand packaging",
+        price: 80,
+        stock: 100,
+      },
+    });
+
+    await Material.findOrCreate({
+      where: { name: "Kraft Paper" },
+      defaults: { unit: "kg", quantity: 0, unit_price: 0 },
+    });
+
+    await Material.findOrCreate({
+      where: { name: "Duplex Board" },
+      defaults: { unit: "kg", quantity: 0, unit_price: 0 },
+    });
+
+    await Material.findOrCreate({
+      where: { name: "Gum" },
+      defaults: { unit: "kg", quantity: 0, unit_price: 0 },
+    });
+
+    const ProductType = require("./models/ProductType");
+    const defaultTypes = [
+      { label: "Carton Box", value: "carton-box" },
+      { label: "Corrugated Box", value: "corrugated-box" },
+      { label: "Printed Corrugated Box", value: "printed-corrugated-box" },
+      { label: "Duplex Box", value: "duplex-box" },
+    ];
+    for (const type of defaultTypes) {
+      await ProductType.findOrCreate({
+        where: { value: type.value },
+        defaults: type,
+      });
+    }
+
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  })
+  .catch((error) => {
+    console.error("Server failed to start:", error);
+    process.exit(1);
   });
-
-  await Product.findOrCreate({
-    where: { name: "Custom Design Box" },
-    defaults: {
-      box_type: "printed-corrugated-box",
-      description: "Printed and designed box for brand packaging",
-      price: 80,
-      stock: 100,
-    },
-  });
-
-  await Material.findOrCreate({
-    where: { name: "Kraft Paper" },
-    defaults: { unit: "kg", quantity: 0, unit_price: 0 },
-  });
-
-  await Material.findOrCreate({
-    where: { name: "Duplex Board" },
-    defaults: { unit: "kg", quantity: 0, unit_price: 0 },
-  });
-
-  await Material.findOrCreate({
-    where: { name: "Gum" },
-    defaults: { unit: "kg", quantity: 0, unit_price: 0 },
-  });
-
-  const ProductType = require("./models/ProductType");
-  const defaultTypes = [
-    { label: "Carton Box", value: "carton-box" },
-    { label: "Corrugated Box", value: "corrugated-box" },
-    { label: "Printed Corrugated Box", value: "printed-corrugated-box" },
-    { label: "Duplex Box", value: "duplex-box" },
-  ];
-  for (const type of defaultTypes) {
-    await ProductType.findOrCreate({ where: { value: type.value }, defaults: type });
-  }
-});
 
 const PORT = process.env.PORT || 5000;
 const authRoutes = require("./routes/authRoutes");
@@ -198,9 +222,6 @@ app.use("/api/orders", orderRoutes);
 const materialRoutes = require("./routes/materialRoutes");
 app.use("/api/materials", materialRoutes);
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
 const verifyToken = require("./middleware/authMiddleware");
 
 app.get("/api/protected", verifyToken, (req, res) => {

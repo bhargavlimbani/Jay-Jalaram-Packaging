@@ -81,14 +81,14 @@ function OrderForm() {
       return;
     }
 
-    if (file.type !== "application/pdf") {
-      setMessage("Please upload only PDF file.");
+    if (!file.type.includes("pdf") && !file.type.includes("zip") && !file.name.endsWith(".zip")) {
+      setMessage("Please upload only PDF or ZIP file.");
       event.target.value = "";
       return;
     }
 
     if (file.size > MAX_PDF_SIZE_BYTES) {
-      setMessage("PDF size must be 5 MB or smaller.");
+      setMessage("File size must be 5 MB or smaller.");
       setDesignFileName("");
       setDesignFileData("");
       event.target.value = "";
@@ -186,7 +186,7 @@ function OrderForm() {
                 <p className="mt-2 text-4xl font-black">Rs. {price}</p>
               </div>
               <div className="rounded-[24px] bg-white p-5 text-sm leading-7 text-slate-600">
-                Upload PDF only. Maximum file size: 5 MB. Include print design, dieline, or special branding instructions if available.
+                Upload PDF or ZIP only. Maximum file size: 5 MB. Include print design, dieline, or special branding instructions if available.
               </div>
             </div>
           </div>
@@ -302,10 +302,10 @@ function OrderForm() {
               </div>
 
               <div className="md:col-span-2">
-                <label className="brand-label">Design PDF</label>
+                <label className="brand-label">Design PDF / ZIP</label>
                 <input
                   type="file"
-                  accept="application/pdf"
+                  accept=".pdf,.zip,application/pdf,application/zip,application/x-zip-compressed"
                   className="brand-input"
                   onChange={handleFileChange}
                 />
@@ -314,7 +314,7 @@ function OrderForm() {
 
             {designFileName && (
               <p className="mt-4 text-sm font-semibold text-green-700">
-                Selected PDF: {designFileName}
+                Selected File: {designFileName}
               </p>
             )}
 
